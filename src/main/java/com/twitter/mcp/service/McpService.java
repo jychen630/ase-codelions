@@ -20,6 +20,7 @@ public class McpService {
     
     private final Map<String, ToolHandler> toolHandlers = new HashMap<>();
     private final QuotaManagementService quotaService;
+    private final OAuthTokenService oauthTokenService;
     
     /**
      * Register a tool handler.
@@ -103,6 +104,76 @@ public class McpService {
                 .build())
             .build());
         
+        // Add OAuth token management tools
+        tools.add(McpTool.builder()
+            .name("store_oauth_token")
+            .description("Store OAuth token for a client and user")
+            .inputSchema(McpTool.InputSchema.builder()
+                .type("object")
+                .properties(Map.of(
+                    "client_id", McpTool.PropertySchema.builder()
+                        .type("string")
+                        .description("Client identifier")
+                        .build(),
+                    "user_id", McpTool.PropertySchema.builder()
+                        .type("string")
+                        .description("User identifier")
+                        .build(),
+                    "access_token", McpTool.PropertySchema.builder()
+                        .type("string")
+                        .description("OAuth access token")
+                        .build(),
+                    "refresh_token", McpTool.PropertySchema.builder()
+                        .type("string")
+                        .description("OAuth refresh token")
+                        .build(),
+                    "expires_in", McpTool.PropertySchema.builder()
+                        .type("integer")
+                        .description("Token expiration time in seconds")
+                        .build()
+                ))
+                .required(List.of("client_id", "user_id", "access_token"))
+                .build())
+            .build());
+        
+        tools.add(McpTool.builder()
+            .name("get_oauth_token")
+            .description("Retrieve OAuth token for a client and user")
+            .inputSchema(McpTool.InputSchema.builder()
+                .type("object")
+                .properties(Map.of(
+                    "client_id", McpTool.PropertySchema.builder()
+                        .type("string")
+                        .description("Client identifier")
+                        .build(),
+                    "user_id", McpTool.PropertySchema.builder()
+                        .type("string")
+                        .description("User identifier")
+                        .build()
+                ))
+                .required(List.of("client_id", "user_id"))
+                .build())
+            .build());
+        
+        tools.add(McpTool.builder()
+            .name("delete_oauth_token")
+            .description("Delete OAuth token for a client and user")
+            .inputSchema(McpTool.InputSchema.builder()
+                .type("object")
+                .properties(Map.of(
+                    "client_id", McpTool.PropertySchema.builder()
+                        .type("string")
+                        .description("Client identifier")
+                        .build(),
+                    "user_id", McpTool.PropertySchema.builder()
+                        .type("string")
+                        .description("User identifier")
+                        .build()
+                ))
+                .required(List.of("client_id", "user_id"))
+                .build())
+            .build());
+        
         Map<String, Object> result = new HashMap<>();
         result.put("tools", tools);
         
@@ -132,6 +203,15 @@ public class McpService {
                 
             case "echo_test":
                 return handleEchoTest(arguments, request.getId());
+                
+            case "store_oauth_token":
+                return handleStoreOAuthToken(arguments, request.getId());
+                
+            case "get_oauth_token":
+                return handleGetOAuthToken(arguments, request.getId());
+                
+            case "delete_oauth_token":
+                return handleDeleteOAuthToken(arguments, request.getId());
                 
             default:
                 // Check if tool is registered
@@ -190,6 +270,117 @@ public class McpService {
         return McpResponse.success(Map.of("content", List.of(
             Map.of("type", "text", "text", echoText)
         )), id);
+    }
+    
+    /**
+     * Handle store_oauth_token tool.
+     */
+    private McpResponse handleStoreOAuthToken(Map<String, Object> arguments, Object id) {
+        String clientId = (String) arguments.get("client_id");
+        String userId = (String) arguments.get("user_id");
+        String accessToken = (String) arguments.get("access_token");
+        String refreshToken = (String) arguments.get("refresh_token");
+        Integer expiresIn = (Integer) arguments.get("expires_in");
+        
+        if (clientId == null || userId == null || accessToken == null) {
+            return McpResponse.error(-32602, "Missing required parameters: client_id, user_id, access_token", id);
+        }
+        
+        try {
+            // Calculate expiration time
+            java.time.LocalDateTime expiresAt = null;
+            if (expiresIn != null) {
+                expiresAt = java.time.LocalDateTime.now().plusSeconds(expiresIn);
+            }
+            
+            // Create token object
+            com.twitter.mcp.model.OAuthToken token = com.twitter.mcp.model.OAuthToken.builder()
+                .clientId(clientId)
+                .userId(userId)
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .expiresAt(expiresAt)
+                .build();
+            
+            // Save token
+            oauthTokenService.saveToken(token);
+            
+            String resultText = String.format("OAuth token stored successfully for client: %s, user: %s", clientId, userId);
+            
+            return McpResponse.success(Map.of("content", List.of(
+                Map.of("type", "text", "text", resultText)
+            )), id);
+            
+        } catch (Exception e) {
+            log.error("Error storing OAuth token", e);
+            return McpResponse.error(-32000, "Failed to store OAuth token: " + e.getMessage(), id);
+        }
+    }
+    
+    /**
+     * Handle get_oauth_token tool.
+     */
+    private McpResponse handleGetOAuthToken(Map<String, Object> arguments, Object id) {
+        String clientId = (String) arguments.get("client_id");
+        String userId = (String) arguments.get("user_id");
+        
+        if (clientId == null || userId == null) {
+            return McpResponse.error(-32602, "Missing required parameters: client_id, user_id", id);
+        }
+        
+        try {
+            java.util.Optional<com.twitter.mcp.model.OAuthToken> tokenOpt = oauthTokenService.getToken(clientId, userId);
+            
+            if (tokenOpt.isEmpty()) {
+                return McpResponse.success(Map.of("content", List.of(
+                    Map.of("type", "text", "text", "No OAuth token found for client: " + clientId + ", user: " + userId)
+                )), id);
+            }
+            
+            com.twitter.mcp.model.OAuthToken token = tokenOpt.get();
+            String resultText = String.format(
+                "OAuth Token Found:\n- Client ID: %s\n- User ID: %s\n- Token Type: %s\n- Expires At: %s\n- Is Expired: %s",
+                token.getClientId(),
+                token.getUserId(),
+                token.getTokenType(),
+                token.getExpiresAt(),
+                token.isExpired()
+            );
+            
+            return McpResponse.success(Map.of("content", List.of(
+                Map.of("type", "text", "text", resultText)
+            )), id);
+            
+        } catch (Exception e) {
+            log.error("Error retrieving OAuth token", e);
+            return McpResponse.error(-32000, "Failed to retrieve OAuth token: " + e.getMessage(), id);
+        }
+    }
+    
+    /**
+     * Handle delete_oauth_token tool.
+     */
+    private McpResponse handleDeleteOAuthToken(Map<String, Object> arguments, Object id) {
+        String clientId = (String) arguments.get("client_id");
+        String userId = (String) arguments.get("user_id");
+        
+        if (clientId == null || userId == null) {
+            return McpResponse.error(-32602, "Missing required parameters: client_id, user_id", id);
+        }
+        
+        try {
+            oauthTokenService.deleteToken(clientId, userId);
+            
+            String resultText = String.format("OAuth token deleted successfully for client: %s, user: %s", clientId, userId);
+            
+            return McpResponse.success(Map.of("content", List.of(
+                Map.of("type", "text", "text", resultText)
+            )), id);
+            
+        } catch (Exception e) {
+            log.error("Error deleting OAuth token", e);
+            return McpResponse.error(-32000, "Failed to delete OAuth token: " + e.getMessage(), id);
+        }
     }
     
     /**

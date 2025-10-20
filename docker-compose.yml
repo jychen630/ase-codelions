@@ -24,6 +24,16 @@ services:
       retries: 3
       start_period: 40s
 
+  # Redis for caching
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
   # Optional: Add a PostgreSQL database for production use
   # postgres:
   #   image: postgres:15
@@ -36,5 +46,6 @@ services:
   #   ports:
   #     - "5432:5432"
 
-# volumes:
-#   postgres_data:
+volumes:
+  redis_data:
+  # postgres_data:
