@@ -1,0 +1,5 @@
+# Maven build output - 
+# everyone has their own local artifacts. 
+# No need to share among teammates
+target/
+

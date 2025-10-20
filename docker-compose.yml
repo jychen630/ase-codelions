@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  twitter-mcp-server:
+    build: .
+    ports:
+      - "18060:18060"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SERVER_PORT=18060
+      # Twitter API credentials (set these as needed)
+      - TWITTER_API_KEY=${TWITTER_API_KEY:-}
+      - TWITTER_API_SECRET=${TWITTER_API_SECRET:-}
+      - TWITTER_ACCESS_TOKEN=${TWITTER_ACCESS_TOKEN:-}
+      - TWITTER_ACCESS_SECRET=${TWITTER_ACCESS_SECRET:-}
+    volumes:
+      # Persist H2 database data
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:18060/mcp/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Redis for caching
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  # Optional: Add a PostgreSQL database for production use
+  # postgres:
+  #   image: postgres:15
+  #   environment:
+  #     POSTGRES_DB: twitter_mcp
+  #     POSTGRES_USER: mcp_user
+  #     POSTGRES_PASSWORD: mcp_password
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+
+volumes:
+  redis_data:
+  # postgres_data:
