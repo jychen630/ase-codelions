@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FakeTwitterClient.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mcp</a> &gt; <a href="index.source.html" class="el_package">com.team.mcp.twitter</a> &gt; <span class="el_source">FakeTwitterClient.java</span></div><h1>FakeTwitterClient.java</h1><pre class="source lang-java linenums">package com.team.mcp.twitter;
+
+import com.team.mcp.twitter.dto.Tweet;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
+
+/**
+ * In-memory, deterministic {@link TwitterClient} used in local runs and tests.
+ *
+ * &lt;p&gt;Behavior:
+ * &lt;ul&gt;
+ *   &lt;li&gt;{@code getHomeTimeline(...)} returns exactly {@code count} tweets
+ *       (up to the seed size).&lt;/li&gt;
+ *   &lt;li&gt;{@code postTweet(...)} returns a synthetic id and does not throw.&lt;/li&gt;
+ * &lt;/ul&gt;
+ */
+public final class FakeTwitterClient implements TwitterClient {
+
+  /** Total number of seed tweets generated at startup. */
+  private static final int SEED_SIZE = 200;
+
+  /** Number of distinct users used to label seed tweets (user0..user4). */
+  private static final int USERS_MOD = 5;
+
+  /** Starting value for synthetic tweet ids (prefix &quot;tw-&quot;). */
+  private static final long START_ID = 1000L;
+
+  /** Pre-generated timeline content, newest first for simplicity. */
+  private final List&lt;Tweet&gt; seed;
+
+  /** Sequence used to generate unique synthetic tweet ids. */
+<span class="fc" id="L34">  private final AtomicLong idSeq = new AtomicLong(START_ID);</span>
+
+  /** Builds a fake client with a fixed seed of tweets. */
+<span class="fc" id="L37">  public FakeTwitterClient() {</span>
+<span class="fc" id="L38">    this.seed = new ArrayList&lt;&gt;(SEED_SIZE);</span>
+<span class="fc" id="L39">    final Instant base = Instant.parse(&quot;2025-01-01T00:00:00Z&quot;);</span>
+<span class="fc bfc" id="L40" title="All 2 branches covered.">    for (int i = 0; i &lt; SEED_SIZE; i++) {</span>
+<span class="fc" id="L41">      final String id = &quot;seed-&quot; + i;</span>
+<span class="fc" id="L42">      final String user = &quot;user&quot; + (i % USERS_MOD);</span>
+<span class="fc" id="L43">      final String text = &quot;Hello from seed tweet #&quot; + i;</span>
+      // Order matches record Tweet(id, user, text, createdAt).
+<span class="fc" id="L45">      this.seed.add(new Tweet(id, user, text, base.plusSeconds(i)));</span>
+    }
+<span class="fc" id="L47">  }</span>
+
+  /**
+   * Returns up to {@code count} seed tweets for the given account.
+   *
+   * @param accountId logical account id/handle (ignored in this fake)
+   * @param count maximum number of tweets to return
+   * @return a new list with at most {@code count} items
+   */
+  @Override
+  public List&lt;Tweet&gt; getHomeTimeline(final String accountId, final int count) {
+<span class="fc" id="L58">    final int n = Math.max(0, Math.min(count, seed.size()));</span>
+    // Return a defensive copy so callers cannot mutate the seed.
+<span class="fc" id="L60">    return new ArrayList&lt;&gt;(seed.subList(0, n));</span>
+  }
+
+  /**
+   * Pretends to post a tweet and returns a synthetic platform id.
+   *
+   * @param accountId logical account id/handle (ignored in this fake)
+   * @param text tweet content (ignored in this fake)
+   * @return a synthetic id like {@code tw-1001}
+   */
+  @Override
+  public String postTweet(final String accountId, final String text) {
+<span class="nc" id="L72">    final long n = idSeq.incrementAndGet();</span>
+<span class="nc" id="L73">    return &quot;tw-&quot; + n;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

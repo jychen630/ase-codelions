@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TokenService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mcp</a> &gt; <a href="index.source.html" class="el_package">com.team.mcp.auth</a> &gt; <span class="el_source">TokenService.java</span></div><h1>TokenService.java</h1><pre class="source lang-java linenums">package com.team.mcp.auth;
+
+import java.time.Instant;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.stereotype.Service;
+
+/**
+ * Minimal in-memory token store for Iteration-1.
+ *
+ * &lt;p&gt;Provides a tiny API that MCP tools can use (independent from the
+ * database-backed {@code TokenStore}). You can swap this out later
+ * without changing tool code.
+ */
+@Service
+<span class="fc" id="L16">public class TokenService {</span>
+
+  /** Number of tail characters to show for redaction. */
+  private static final int LAST_N = 4;
+
+  /**
+   * Redacted view returned by {@link #getToken(String, String)}.
+   *
+   * @param accessLast4 last 4 chars of access token (or shorter/empty)
+   * @param hasRefresh whether a refresh token is present
+   * @param expiresAtIso ISO-8601 expiry time, or {@code null} if not set
+   * @param scopesCsv comma-separated scopes, or {@code null}
+   */
+<span class="fc" id="L29">  public record TokenView(</span>
+      String accessLast4,
+      boolean hasRefresh,
+      String expiresAtIso,
+      String scopesCsv) {
+  }
+
+  /** Internal stored token. */
+  private static final class Stored {
+
+    /** Plain access token (demo only). */
+    private final String access;
+    /** Plain refresh token (optional, demo only). */
+    private final String refresh;
+    /** Expiry moment (optional). */
+    private final Instant expiresAt;
+    /** Comma-separated scopes (optional). */
+    private final String scopes;
+
+    Stored(final String accessToken,
+           final String refreshToken,
+           final Instant expires,
+<span class="fc" id="L51">           final String scopesCsv) {</span>
+<span class="fc" id="L52">      this.access = accessToken;</span>
+<span class="fc" id="L53">      this.refresh = refreshToken;</span>
+<span class="fc" id="L54">      this.expiresAt = expires;</span>
+<span class="fc" id="L55">      this.scopes = scopesCsv;</span>
+<span class="fc" id="L56">    }</span>
+
+    String access() {
+<span class="fc" id="L59">      return access;</span>
+    }
+
+    String refresh() {
+<span class="fc" id="L63">      return refresh;</span>
+    }
+
+    Instant expiresAt() {
+<span class="fc" id="L67">      return expiresAt;</span>
+    }
+
+    String scopes() {
+<span class="fc" id="L71">      return scopes;</span>
+    }
+  }
+
+  /** In-memory map keyed by &quot;account|provider&quot;. */
+<span class="fc" id="L76">  private final Map&lt;String, Stored&gt; store = new ConcurrentHashMap&lt;&gt;();</span>
+
+  private static String key(final String accountId, final String provider) {
+<span class="pc bpc" id="L79" title="2 of 4 branches missed.">    final String prov = provider == null || provider.isBlank()</span>
+<span class="nc" id="L80">        ? &quot;twitter&quot;</span>
+<span class="fc" id="L81">        : provider;</span>
+<span class="fc" id="L82">    return accountId + &quot;|&quot; + prov;</span>
+  }
+
+  /**
+   * Create or update a token for an account+provider.
+   *
+   * @param accountId logical account id
+   * @param provider provider id (e.g., {@code &quot;twitter&quot;});
+   *                 defaults to {@code &quot;twitter&quot;} if blank
+   * @param access plaintext access token
+   * @param refresh plaintext refresh token (optional)
+   * @param expiresAt expiry (optional)
+   * @param scopes comma-separated scopes (optional)
+   * @throws IllegalArgumentException if accountId is blank
+   */
+  public void upsertToken(final String accountId,
+                          final String provider,
+                          final String access,
+                          final String refresh,
+                          final Instant expiresAt,
+                          final String scopes) {
+<span class="pc bpc" id="L103" title="2 of 4 branches missed.">    if (accountId == null || accountId.isBlank()) {</span>
+<span class="nc" id="L104">      throw new IllegalArgumentException(&quot;account_id required&quot;);</span>
+    }
+<span class="pc bpc" id="L106" title="1 of 4 branches missed.">    final String prov = provider == null || provider.isBlank()</span>
+<span class="fc" id="L107">        ? &quot;twitter&quot;</span>
+<span class="fc" id="L108">        : provider;</span>
+<span class="fc" id="L109">    store.put(key(accountId, prov),</span>
+        new Stored(access, refresh, expiresAt, scopes));
+<span class="fc" id="L111">  }</span>
+
+  /**
+   * Return a redacted view of the stored token (or {@code null} if none).
+   *
+   * @param accountId account id
+   * @param provider provider id; defaults to {@code &quot;twitter&quot;} if blank
+   * @return TokenView or {@code null}
+   */
+  public TokenView getToken(final String accountId,
+                            final String provider) {
+<span class="pc bpc" id="L122" title="1 of 4 branches missed.">    final String prov = provider == null || provider.isBlank()</span>
+<span class="fc" id="L123">        ? &quot;twitter&quot;</span>
+<span class="fc" id="L124">        : provider;</span>
+<span class="fc" id="L125">    final Stored s = store.get(key(accountId, prov));</span>
+<span class="pc bpc" id="L126" title="1 of 2 branches missed.">    if (s == null) {</span>
+<span class="nc" id="L127">      return null;</span>
+    }
+
+<span class="fc" id="L130">    final String access = s.access();</span>
+    final String last4;
+<span class="pc bpc" id="L132" title="2 of 4 branches missed.">    if (access == null || access.isEmpty()) {</span>
+<span class="nc" id="L133">      last4 = &quot;&quot;;</span>
+<span class="fc bfc" id="L134" title="All 2 branches covered.">    } else if (access.length() &lt;= LAST_N) {</span>
+<span class="fc" id="L135">      last4 = access;</span>
+    } else {
+<span class="fc" id="L137">      last4 = access.substring(access.length() - LAST_N);</span>
+    }
+
+<span class="fc" id="L140">    final boolean hasRefresh =</span>
+<span class="pc bpc" id="L141" title="1 of 4 branches missed.">        s.refresh() != null &amp;&amp; !s.refresh().isBlank();</span>
+    final String expiresIso =
+<span class="fc bfc" id="L143" title="All 2 branches covered.">        s.expiresAt() == null ? null : s.expiresAt().toString();</span>
+
+<span class="fc" id="L145">    return new TokenView(last4, hasRefresh, expiresIso, s.scopes());</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

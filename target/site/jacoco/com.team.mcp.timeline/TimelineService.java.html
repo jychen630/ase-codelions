@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TimelineService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mcp</a> &gt; <a href="index.source.html" class="el_package">com.team.mcp.timeline</a> &gt; <span class="el_source">TimelineService.java</span></div><h1>TimelineService.java</h1><pre class="source lang-java linenums">package com.team.mcp.timeline;
+
+import com.team.mcp.twitter.TwitterClient;
+import com.team.mcp.twitter.dto.Tweet;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import org.springframework.stereotype.Service;
+
+/**
+ * Business logic for reading a home timeline.
+ */
+@Service
+public class TimelineService {
+
+  /** Minimum number of tweets to return. */
+  private static final int MIN_COUNT = 1;
+
+  /** Maximum number of tweets to return. */
+  private static final int MAX_COUNT = 50;
+
+  /** Client used to retrieve tweets. */
+  private final TwitterClient twitterClient;
+
+  /**
+   * Creates a new {@code TimelineService}.
+   *
+   * @param client the Twitter client used for retrieval
+   */
+<span class="fc" id="L30">  public TimelineService(final TwitterClient client) {</span>
+<span class="fc" id="L31">    this.twitterClient = Objects.requireNonNull(client, &quot;twitterClient&quot;);</span>
+<span class="fc" id="L32">  }</span>
+
+  /**
+   * Returns the home timeline for an account. The requested {@code count} is
+   * clamped to {@link #MIN_COUNT}..{@link #MAX_COUNT}.
+   *
+   * @param accountId logical account id/handle
+   * @param count requested number of tweets
+   * @return a list of tweets (never {@code null})
+   * @throws IllegalStateException if the underlying client fails
+   */
+  public List&lt;Tweet&gt; getHomeTimeline(final String accountId, final int count) {
+<span class="fc" id="L44">    final int c = clamp(count, MIN_COUNT, MAX_COUNT);</span>
+    try {
+<span class="fc" id="L46">      final List&lt;Tweet&gt; result = twitterClient.getHomeTimeline(accountId, c);</span>
+<span class="pc bpc" id="L47" title="1 of 2 branches missed.">      return result == null ? new ArrayList&lt;&gt;() : result;</span>
+<span class="fc" id="L48">    } catch (TwitterClient.TwitterException e) {</span>
+      // Wrap checked exception into unchecked for controller to convert to 502.
+<span class="fc" id="L50">      throw new IllegalStateException(&quot;Failed to fetch home timeline&quot;, e);</span>
+    }
+  }
+
+  /**
+   * Clamp a value to an inclusive range.
+   *
+   * @param val the value to clamp
+   * @param min the inclusive lower bound
+   * @param max the inclusive upper bound
+   * @return {@code min} if {@code val &lt; min}; {@code max} if {@code val &gt; max};
+   *     otherwise {@code val}
+   */
+  private static int clamp(final int val, final int min, final int max) {
+<span class="fc bfc" id="L64" title="All 2 branches covered.">    if (val &lt; min) {</span>
+<span class="fc" id="L65">      return min;</span>
+    }
+<span class="fc bfc" id="L67" title="All 2 branches covered.">    if (val &gt; max) {</span>
+<span class="fc" id="L68">      return max;</span>
+    }
+<span class="fc" id="L70">    return val;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

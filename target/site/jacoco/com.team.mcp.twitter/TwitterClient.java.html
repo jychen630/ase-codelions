@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TwitterClient.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mcp</a> &gt; <a href="index.source.html" class="el_package">com.team.mcp.twitter</a> &gt; <span class="el_source">TwitterClient.java</span></div><h1>TwitterClient.java</h1><pre class="source lang-java linenums">package com.team.mcp.twitter;
+
+import com.team.mcp.twitter.dto.Tweet;
+import java.util.List;
+
+/**
+ * Abstraction over Twitter/X operations used by our services.
+ *
+ * &lt;p&gt;Implementations:
+ * &lt;ul&gt;
+ *   &lt;li&gt;RealTwitterClient: talks to the real Twitter API (later).&lt;/li&gt;
+ *   &lt;li&gt;FakeTwitterClient: deterministic, in-memory for tests/dev.&lt;/li&gt;
+ * &lt;/ul&gt;
+ */
+public interface TwitterClient {
+
+  /**
+   * Posts a new tweet for a given account.
+   *
+   * @param accountId logical id or handle (e.g. {@code &quot;test-account&quot;})
+   * @param text tweet content
+   * @return tweet id assigned by the platform (or a fake id in tests)
+   * @throws TwitterException when the post fails (rate limit,
+   *     network, etc.)
+   */
+  String postTweet(String accountId, String text) throws TwitterException;
+
+  /**
+   * Returns the most recent tweets for the account's home timeline.
+   *
+   * @param accountId logical id or handle for the account
+   * @param count max number of tweets to return (implementation may
+   *     clamp)
+   * @return list of tweets, newest first
+   * @throws TwitterException on retrieval errors
+   */
+  List&lt;Tweet&gt; getHomeTimeline(String accountId, int count)
+      throws TwitterException;
+
+  /**
+   * Checked exception to model client failures in a testable way.
+   */
+  class TwitterException extends Exception {
+
+    /**
+     * Creates a {@code TwitterException} with a message.
+     *
+     * @param message explanation of the failure
+     */
+    public TwitterException(final String message) {
+<span class="fc" id="L51">      super(message);</span>
+<span class="fc" id="L52">    }</span>
+
+    /**
+     * Creates a {@code TwitterException} with a message and cause.
+     *
+     * @param message explanation of the failure
+     * @param cause underlying cause
+     */
+    public TwitterException(final String message, final Throwable cause) {
+<span class="nc" id="L61">      super(message, cause);</span>
+<span class="nc" id="L62">    }</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

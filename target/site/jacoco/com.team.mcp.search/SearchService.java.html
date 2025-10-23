@@ -1,0 +1,309 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SearchService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mcp</a> &gt; <a href="index.source.html" class="el_package">com.team.mcp.search</a> &gt; <span class="el_source">SearchService.java</span></div><h1>SearchService.java</h1><pre class="source lang-java linenums">package com.team.mcp.search;
+
+import com.team.mcp.twitter.TwitterClient;
+import com.team.mcp.twitter.TwitterClient.TwitterException;
+import com.team.mcp.twitter.dto.Tweet;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Objects;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.stereotype.Service;
+
+/**
+ * Search over tweets from either in-memory timeline (FakeTwitterClient)
+ * or the DB {@code TWEETS} table, selected by {@code app.search.source}.
+ *
+ * &lt;p&gt;Modes:
+ * &lt;br&gt;source=memory (default) → {@link TwitterClient}
+ * &lt;br&gt;source=db → {@code SELECT * FROM TWEETS WHERE ACCOUNT_ID = ?}
+ */
+@Service
+public final class SearchService {
+
+  /** Default pool to scan from the timeline. */
+  private static final int TIMELINE_POOL = 200;
+
+  /** Default page size. */
+  private static final int DEFAULT_LIMIT = 20;
+
+  /** Hard upper bound for limit. */
+  private static final int MAX_LIMIT = 100;
+
+  /** Client used to fetch tweets (fake or real). */
+  private final TwitterClient twitter;
+
+  /** Optional JDBC handle for DB-backed search. */
+  private final JdbcTemplate jdbc;
+
+  /** Source selector: &quot;memory&quot; or &quot;db&quot;. */
+  private final String source;
+
+  /**
+   * Primary Spring constructor.
+   *
+   * @param twitterClient the Twitter client
+   * @param jdbcTemplate JDBC template (may be {@code null} if not configured)
+   * @param searchSource config flag: {@code memory} (default) or {@code db}
+   */
+  @Autowired
+  public SearchService(
+      final TwitterClient twitterClient,
+      final JdbcTemplate jdbcTemplate,
+<span class="fc" id="L59">      @Value(&quot;${app.search.source:memory}&quot;) final String searchSource) {</span>
+<span class="fc" id="L60">    this.twitter = Objects.requireNonNull(twitterClient, &quot;twitter&quot;);</span>
+<span class="fc" id="L61">    this.jdbc = jdbcTemplate;</span>
+<span class="pc bpc" id="L62" title="2 of 4 branches missed.">    this.source = searchSource == null || searchSource.isBlank()</span>
+<span class="nc" id="L63">        ? &quot;memory&quot;</span>
+<span class="fc" id="L64">        : searchSource;</span>
+<span class="fc" id="L65">  }</span>
+
+  /**
+   * Backward-compatible constructor for unit tests using memory only.
+   *
+   * @param twitterClient the Twitter client
+   */
+  public SearchService(final TwitterClient twitterClient) {
+<span class="fc" id="L73">    this(twitterClient, null, &quot;memory&quot;);</span>
+<span class="fc" id="L74">  }</span>
+
+  /**
+   * Search tweets with AND/OR and phrase support. Ranking by:
+   * &lt;ol&gt;
+   *   &lt;li&gt;token match score (phrases count double)&lt;/li&gt;
+   *   &lt;li&gt;recency (newer first)&lt;/li&gt;
+   * &lt;/ol&gt;
+   *
+   * @param accountId account id
+   * @param rawQuery raw query string
+   * @param offset skip this many results (for pagination)
+   * @param limit max results to return (capped)
+   * @return a page of matching tweets (possibly empty, never {@code null})
+   */
+  public List&lt;Tweet&gt; search(
+      final String accountId,
+      final String rawQuery,
+      final int offset,
+      final int limit) {
+
+<span class="fc" id="L95">    final int lim =</span>
+<span class="pc bpc" id="L96" title="1 of 2 branches missed.">        Math.max(1, Math.min(limit &lt;= 0 ? DEFAULT_LIMIT : limit, MAX_LIMIT));</span>
+<span class="fc" id="L97">    final int off = Math.max(0, offset);</span>
+
+<span class="fc" id="L99">    final SearchQuery parsed = SearchQuery.parse(rawQuery);</span>
+<span class="fc" id="L100">    final List&lt;Tweet&gt; pool = fetchPool(accountId, TIMELINE_POOL);</span>
+
+<span class="fc" id="L102">    final List&lt;Scored&gt; matches = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L103">    Instant newest = Instant.EPOCH;</span>
+
+<span class="fc bfc" id="L105" title="All 2 branches covered.">    for (Tweet t : pool) {</span>
+<span class="pc bpc" id="L106" title="2 of 4 branches missed.">      if (t.createdAt() != null &amp;&amp; t.createdAt().isAfter(newest)) {</span>
+<span class="fc" id="L107">        newest = t.createdAt();</span>
+      }
+<span class="fc" id="L109">    }</span>
+
+<span class="fc bfc" id="L111" title="All 2 branches covered.">    for (Tweet t : pool) {</span>
+<span class="fc" id="L112">      final int score = scoreTweet(t, parsed);</span>
+<span class="fc bfc" id="L113" title="All 2 branches covered.">      if (score &gt; 0) {</span>
+<span class="fc" id="L114">        final long recency =</span>
+<span class="fc" id="L115">            newest.toEpochMilli()</span>
+<span class="pc bpc" id="L116" title="1 of 2 branches missed.">                - (t.createdAt() == null ? 0L : t.createdAt().toEpochMilli());</span>
+<span class="fc" id="L117">        matches.add(new Scored(t, score, recency));</span>
+      }
+<span class="fc" id="L119">    }</span>
+
+<span class="fc" id="L121">    matches.sort(</span>
+<span class="fc" id="L122">        Comparator.comparingInt(Scored::score)</span>
+<span class="fc" id="L123">            .reversed()</span>
+<span class="fc" id="L124">            .thenComparingLong(Scored::recency));</span>
+
+<span class="fc" id="L126">    final int from = Math.min(off, matches.size());</span>
+<span class="fc" id="L127">    final int to = Math.min(from + lim, matches.size());</span>
+
+<span class="fc" id="L129">    final List&lt;Tweet&gt; out = new ArrayList&lt;&gt;(Math.max(0, to - from));</span>
+<span class="fc bfc" id="L130" title="All 2 branches covered.">    for (int i = from; i &lt; to; i++) {</span>
+<span class="fc" id="L131">      out.add(matches.get(i).tweet());</span>
+    }
+<span class="fc" id="L133">    return out;</span>
+  }
+
+  /**
+   * Hashtag search: exact case-insensitive match on a {@code #tag} token.
+   *
+   * @param accountId account id
+   * @param hashtag hashtag including leading {@code '#'}
+   * @param limit max results
+   * @return matching tweets (possibly empty, never {@code null})
+   */
+  public List&lt;Tweet&gt; searchHashtag(
+      final String accountId,
+      final String hashtag,
+      final int limit) {
+
+    final String needle =
+<span class="pc bpc" id="L150" title="1 of 2 branches missed.">        hashtag == null ? &quot;&quot; : hashtag.trim().toLowerCase();</span>
+<span class="pc bpc" id="L151" title="1 of 2 branches missed.">    if (!needle.startsWith(&quot;#&quot;)) {</span>
+<span class="nc" id="L152">      return List.of();</span>
+    }
+
+<span class="fc" id="L155">    final int lim =</span>
+<span class="pc bpc" id="L156" title="1 of 2 branches missed.">        Math.max(1, Math.min(limit &lt;= 0 ? DEFAULT_LIMIT : limit, MAX_LIMIT));</span>
+
+    // Simple approach: reuse the same pool and filter.
+<span class="fc" id="L159">    final List&lt;Tweet&gt; pool = fetchPool(accountId, TIMELINE_POOL);</span>
+<span class="fc" id="L160">    final List&lt;Tweet&gt; out = new ArrayList&lt;&gt;();</span>
+
+<span class="fc bfc" id="L162" title="All 2 branches covered.">    for (Tweet t : pool) {</span>
+<span class="pc bpc" id="L163" title="1 of 2 branches missed.">      final String txt = t.text() == null ? &quot;&quot; : t.text().toLowerCase();</span>
+<span class="fc" id="L164">      final String[] toks = txt.split(&quot;\\s+&quot;);</span>
+<span class="fc bfc" id="L165" title="All 2 branches covered.">      for (String tok : toks) {</span>
+<span class="fc bfc" id="L166" title="All 2 branches covered.">        if (needle.equals(tok)) {</span>
+<span class="fc" id="L167">          out.add(t);</span>
+<span class="fc" id="L168">          break;</span>
+        }
+      }
+<span class="pc bpc" id="L171" title="1 of 2 branches missed.">      if (out.size() &gt;= lim) {</span>
+<span class="nc" id="L172">        break;</span>
+      }
+<span class="fc" id="L174">    }</span>
+<span class="fc" id="L175">    return out;</span>
+  }
+
+  /**
+   * Decide source and fetch a pool of tweets.
+   *
+   * @param accountId logical account id used for filtering
+   * @param max maximum number of tweets to fetch
+   * @return list of tweets (possibly empty, never {@code null})
+   */
+  private List&lt;Tweet&gt; fetchPool(final String accountId, final int max) {
+<span class="pc bpc" id="L186" title="3 of 4 branches missed.">    if (&quot;db&quot;.equalsIgnoreCase(source) &amp;&amp; jdbc != null) {</span>
+<span class="nc" id="L187">      return selectTweetsFromDb(accountId, max);</span>
+    }
+    try {
+<span class="fc" id="L190">      return twitter.getHomeTimeline(accountId, max);</span>
+<span class="fc" id="L191">    } catch (TwitterException ex) {</span>
+<span class="fc" id="L192">      return List.of();</span>
+    }
+  }
+
+  /**
+   * Query the {@code TWEETS} table for an account.
+   *
+   * @param accountId account id to filter
+   * @param max how many rows to return
+   * @return list of Tweet DTOs ordered by {@code created_at DESC}
+   */
+  private List&lt;Tweet&gt; selectTweetsFromDb(
+      final String accountId,
+      final int max) {
+
+<span class="nc" id="L207">    final String sql =</span>
+        &quot;SELECT id, user_handle, text, created_at &quot;
+            + &quot;FROM tweets &quot;
+            + &quot;WHERE account_id = ? &quot;
+            + &quot;ORDER BY created_at DESC &quot;
+            + &quot;LIMIT ?&quot;;
+
+<span class="nc" id="L214">    final RowMapper&lt;Tweet&gt; mapper = new RowMapper&lt;&gt;() {</span>
+      @Override
+      public Tweet mapRow(final ResultSet rs, final int rowNum)
+          throws SQLException {
+<span class="nc" id="L218">        final String id = rs.getString(&quot;id&quot;);</span>
+<span class="nc" id="L219">        final String user = rs.getString(&quot;user_handle&quot;);</span>
+<span class="nc" id="L220">        final String text = rs.getString(&quot;text&quot;);</span>
+<span class="nc" id="L221">        final Instant created = rs.getTimestamp(&quot;created_at&quot;).toInstant();</span>
+<span class="nc" id="L222">        return new Tweet(id, user, text, created);</span>
+      }
+    };
+
+<span class="nc" id="L226">    return jdbc.query(sql, mapper, accountId, max);</span>
+  }
+
+  /**
+   * Compute a match score for a tweet against the parsed query.
+   *
+   * @param t tweet to check
+   * @param q parsed search query
+   * @return positive score if the tweet matches, otherwise {@code 0}
+   */
+  private static int scoreTweet(final Tweet t, final SearchQuery q) {
+<span class="pc bpc" id="L237" title="1 of 2 branches missed.">    final String txt = (t.text() == null) ? &quot;&quot; : t.text().toLowerCase();</span>
+<span class="fc" id="L238">    int best = 0;</span>
+<span class="fc bfc" id="L239" title="All 2 branches covered.">    for (SearchQuery.Clause c : q.clauses()) {</span>
+<span class="fc" id="L240">      final int s = scoreClause(txt, c);</span>
+<span class="fc bfc" id="L241" title="All 2 branches covered.">      if (s &gt; best) {</span>
+<span class="fc" id="L242">        best = s;</span>
+      }
+<span class="fc" id="L244">    }</span>
+<span class="fc" id="L245">    return best;</span>
+  }
+
+  /**
+   * Score a single AND-clause; phrases count double.
+   *
+   * @param txt normalized (lowercased) tweet text
+   * @param c AND-clause containing terms and phrases
+   * @return clause score; {@code 0} if any required term/phrase is missing
+   */
+  private static int scoreClause(
+      final String txt,
+      final SearchQuery.Clause c) {
+
+<span class="fc" id="L259">    int termHits = 0;</span>
+<span class="fc bfc" id="L260" title="All 2 branches covered.">    for (String term : c.terms()) {</span>
+<span class="fc bfc" id="L261" title="All 2 branches covered.">      if (!txt.contains(term)) {</span>
+<span class="fc" id="L262">        return 0;</span>
+      }
+<span class="fc" id="L264">      termHits++;</span>
+<span class="fc" id="L265">    }</span>
+
+<span class="fc" id="L267">    int phraseHits = 0;</span>
+<span class="fc bfc" id="L268" title="All 2 branches covered.">    for (String ph : c.phrases()) {</span>
+<span class="fc bfc" id="L269" title="All 2 branches covered.">      if (!txt.contains(ph)) {</span>
+<span class="fc" id="L270">        return 0;</span>
+      }
+<span class="fc" id="L272">      phraseHits++;</span>
+<span class="fc" id="L273">    }</span>
+
+<span class="fc" id="L275">    return termHits + (phraseHits * 2);</span>
+  }
+
+  /** Small container for sorting matched tweets. */
+  private static final class Scored {
+
+    /** The tweet that matched. */
+    private final Tweet tweet;
+
+    /** Match score (higher is better). */
+    private final int score;
+
+    /** Recency key (lower is newer). */
+    private final long recency;
+
+<span class="fc" id="L290">    Scored(final Tweet t, final int s, final long r) {</span>
+<span class="fc" id="L291">      this.tweet = t;</span>
+<span class="fc" id="L292">      this.score = s;</span>
+<span class="fc" id="L293">      this.recency = r;</span>
+<span class="fc" id="L294">    }</span>
+
+    Tweet tweet() {
+<span class="fc" id="L297">      return tweet;</span>
+    }
+
+    int score() {
+<span class="fc" id="L301">      return score;</span>
+    }
+
+    long recency() {
+<span class="fc" id="L305">      return recency;</span>
+    }
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

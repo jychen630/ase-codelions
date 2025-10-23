@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ScheduledPost.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mcp</a> &gt; <a href="index.source.html" class="el_package">com.team.mcp.scheduling</a> &gt; <span class="el_source">ScheduledPost.java</span></div><h1>ScheduledPost.java</h1><pre class="source lang-java linenums">package com.team.mcp.scheduling;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
+import java.time.Instant;
+import java.util.Objects;
+
+/**
+ * JPA entity representing a tweet scheduled for future publication.
+ */
+@Entity
+@Table(
+    name = &quot;scheduled_posts&quot;,
+    indexes = {
+        @Index(
+            name = &quot;idx_scheduled_status_runat&quot;,
+            columnList = &quot;status, run_at&quot;
+        ),
+        @Index(
+            name = &quot;idx_scheduled_account&quot;,
+            columnList = &quot;account_id&quot;
+        )
+    }
+)
+public final class ScheduledPost {
+
+  /** Maximum length for account id/handle column. */
+  private static final int LEN_ACCOUNT_ID = 128;
+
+  /** Maximum length for tweet text column. */
+  private static final int LEN_TEXT = 1000;
+
+  /** Maximum length for persisted {@link Status} string. */
+  private static final int LEN_STATUS = 16;
+
+  /** Maximum length for the posted tweet id column. */
+  private static final int LEN_TWEET_ID = 128;
+
+  /** Lifecycle status for a scheduled post. */
+<span class="fc" id="L49">  public enum Status {</span>
+    /** Created and awaiting publishing time. */
+<span class="fc" id="L51">    PENDING,</span>
+    /** Successfully posted. */
+<span class="fc" id="L53">    POSTED,</span>
+    /** Publishing attempted and failed (may retry later). */
+<span class="fc" id="L55">    FAILED</span>
+  }
+
+  /** Surrogate primary key (auto-generated). */
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+
+  /** Logical account id/handle. */
+  @Column(name = &quot;account_id&quot;, nullable = false, length = LEN_ACCOUNT_ID)
+  private String accountId;
+
+  /** Tweet content to publish. */
+  @Column(name = &quot;text&quot;, nullable = false, length = LEN_TEXT)
+  private String text;
+
+  /** Time to publish, in UTC. */
+  @Column(name = &quot;run_at&quot;, nullable = false)
+  private Instant runAt;
+
+  /** Current lifecycle status. */
+<span class="fc" id="L76">  @Enumerated(EnumType.STRING)</span>
+  @Column(name = &quot;status&quot;, nullable = false, length = LEN_STATUS)
+  private Status status = Status.PENDING;
+
+  /** Platform tweet id after successful posting (nullable). */
+  @Column(name = &quot;posted_tweet_id&quot;, length = LEN_TWEET_ID)
+  private String postedTweetId;
+
+  /** Creation timestamp (set on insert). */
+  @Column(name = &quot;created_at&quot;, nullable = false)
+  private Instant createdAt;
+
+  /** Update timestamp (set on insert/update). */
+  @Column(name = &quot;updated_at&quot;, nullable = false)
+  private Instant updatedAt;
+
+  /** For JPA only. */
+<span class="fc" id="L93">  protected ScheduledPost() {</span>
+    // JPA
+<span class="fc" id="L95">  }</span>
+
+  /**
+   * Creates a new scheduled post in {@link Status#PENDING}.
+   *
+   * @param accountIdParam logical account id/handle
+   * @param textParam tweet content to publish
+   * @param runAtParam time to publish, in UTC
+   */
+  public ScheduledPost(final String accountIdParam,
+                       final String textParam,
+<span class="fc" id="L106">                       final Instant runAtParam) {</span>
+<span class="fc" id="L107">    this.accountId = Objects.requireNonNull(accountIdParam, &quot;accountId&quot;);</span>
+<span class="fc" id="L108">    this.text = Objects.requireNonNull(textParam, &quot;text&quot;);</span>
+<span class="fc" id="L109">    this.runAt = Objects.requireNonNull(runAtParam, &quot;runAt&quot;);</span>
+<span class="fc" id="L110">    this.status = Status.PENDING;</span>
+<span class="fc" id="L111">  }</span>
+
+  /**
+   * Set timestamps on insert.
+   * Suppressed PMD: called by JPA via reflection.
+   */
+  @SuppressWarnings(&quot;PMD.UnusedPrivateMethod&quot;)
+  @PrePersist
+  private void onCreate() {
+<span class="nc" id="L120">    final Instant now = Instant.now();</span>
+<span class="nc" id="L121">    this.createdAt = now;</span>
+<span class="nc" id="L122">    this.updatedAt = now;</span>
+<span class="nc" id="L123">  }</span>
+
+  /**
+   * Update timestamp on update.
+   * Suppressed PMD: called by JPA via reflection.
+   */
+  @SuppressWarnings(&quot;PMD.UnusedPrivateMethod&quot;)
+  @PreUpdate
+  private void onUpdate() {
+<span class="nc" id="L132">    this.updatedAt = Instant.now();</span>
+<span class="nc" id="L133">  }</span>
+
+  /**
+   * Marks this post as successfully posted with the given platform tweet id.
+   *
+   * @param tweetId id assigned by the platform for the posted tweet
+   */
+  public void markPosted(final String tweetId) {
+<span class="fc" id="L141">    this.status = Status.POSTED;</span>
+<span class="fc" id="L142">    this.postedTweetId = tweetId;</span>
+<span class="fc" id="L143">  }</span>
+
+  /** Marks this post as failed to publish. */
+  public void markFailed() {
+<span class="fc" id="L147">    this.status = Status.FAILED;</span>
+<span class="fc" id="L148">  }</span>
+
+  /* ---------- Getters / Setters ---------- */
+
+  /** @return primary key */
+  public Long getId() {
+<span class="nc" id="L154">    return id;</span>
+  }
+
+  /** @return logical account id/handle */
+  public String getAccountId() {
+<span class="fc" id="L159">    return accountId;</span>
+  }
+
+  /** @return tweet content */
+  public String getText() {
+<span class="fc" id="L164">    return text;</span>
+  }
+
+  /** @return scheduled publish time (UTC) */
+  public Instant getRunAt() {
+<span class="fc" id="L169">    return runAt;</span>
+  }
+
+  /** @return lifecycle status */
+  public Status getStatus() {
+<span class="fc" id="L174">    return status;</span>
+  }
+
+  /** @return platform tweet id when posted, otherwise {@code null} */
+  public String getPostedTweetId() {
+<span class="fc" id="L179">    return postedTweetId;</span>
+  }
+
+  /** @return creation timestamp */
+  public Instant getCreatedAt() {
+<span class="nc" id="L184">    return createdAt;</span>
+  }
+
+  /** @return last update timestamp */
+  public Instant getUpdatedAt() {
+<span class="nc" id="L189">    return updatedAt;</span>
+  }
+
+  /**
+   * Sets the logical account id/handle.
+   *
+   * @param accountIdParam account id to set
+   */
+  public void setAccountId(final String accountIdParam) {
+<span class="nc" id="L198">    this.accountId = accountIdParam;</span>
+<span class="nc" id="L199">  }</span>
+
+  /**
+   * Sets the tweet content.
+   *
+   * @param textParam text to set
+   */
+  public void setText(final String textParam) {
+<span class="nc" id="L207">    this.text = textParam;</span>
+<span class="nc" id="L208">  }</span>
+
+  /**
+   * Sets the scheduled publish time (UTC).
+   *
+   * @param runAtParam time to set
+   */
+  public void setRunAt(final Instant runAtParam) {
+<span class="nc" id="L216">    this.runAt = runAtParam;</span>
+<span class="nc" id="L217">  }</span>
+
+  /**
+   * Sets the lifecycle status.
+   *
+   * @param statusParam status to set
+   */
+  public void setStatus(final Status statusParam) {
+<span class="nc" id="L225">    this.status = statusParam;</span>
+<span class="nc" id="L226">  }</span>
+
+  /**
+   * Sets the platform tweet id (after posting).
+   *
+   * @param postedTweetIdParam tweet id to set
+   */
+  public void setPostedTweetId(final String postedTweetIdParam) {
+<span class="nc" id="L234">    this.postedTweetId = postedTweetIdParam;</span>
+<span class="nc" id="L235">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

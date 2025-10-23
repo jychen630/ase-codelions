@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DbTokenStore.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mcp</a> &gt; <a href="index.source.html" class="el_package">com.team.mcp.auth</a> &gt; <span class="el_source">DbTokenStore.java</span></div><h1>DbTokenStore.java</h1><pre class="source lang-java linenums">package com.team.mcp.auth;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import org.springframework.context.annotation.Primary;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * Database-backed implementation of the token store used by MCP tools.
+ *
+ * &lt;p&gt;Marked {@link Primary} so it overrides the in-memory store when both
+ * are on the classpath. No profile flag needed for Iteration-1.
+ *
+ * &lt;p&gt;Iteration-1 security note: tokens are persisted using
+ * {@link SecretCryptoService} (base64 placeholder). Replace with a real
+ * AEAD cipher/KMS in Iteration-2 without changing this interface.
+ */
+@Primary
+@Service
+@SuppressWarnings(&quot;checkstyle:DesignForExtension&quot;)
+public class DbTokenStore implements TokenStore {
+
+  /** Repository for persistence. */
+  private final TokenCredentialRepository repo;
+
+  /** Simple crypto adapter (base64 in Iteration-1). */
+  private final SecretCryptoService crypto;
+
+  /**
+   * Creates the store with a repository and crypto service.
+   *
+   * @param repoParam JPA repository
+   * @param cryptoParam crypto adapter used to protect secrets at rest
+   */
+  public DbTokenStore(
+      final TokenCredentialRepository repoParam,
+<span class="fc" id="L39">      final SecretCryptoService cryptoParam) {</span>
+<span class="fc" id="L40">    this.repo = Objects.requireNonNull(repoParam, &quot;repo&quot;);</span>
+<span class="fc" id="L41">    this.crypto = Objects.requireNonNull(cryptoParam, &quot;crypto&quot;);</span>
+<span class="fc" id="L42">  }</span>
+
+  /**
+   * Retrieve a plaintext token for the given account id, if present.
+   *
+   * @param accountId logical account id
+   * @return optional plaintext token
+   */
+  @Override
+  @Transactional(readOnly = true)
+  public Optional&lt;String&gt; get(final String accountId) {
+<span class="nc" id="L53">    return repo.findByAccountId(accountId)</span>
+<span class="nc" id="L54">        .map(TokenCredential::getToken)</span>
+<span class="nc" id="L55">        .map(crypto::decrypt);</span>
+  }
+
+  /**
+   * Store or update the token for an account id.
+   *
+   * @param accountId logical account id
+   * @param token plaintext token to persist (will be encoded)
+   */
+  @Override
+  @Transactional
+  public void put(final String accountId, final String token) {
+<span class="nc" id="L67">    final String enc = crypto.encrypt(token);</span>
+<span class="nc" id="L68">    final TokenCredential cred =</span>
+<span class="nc" id="L69">        repo.findByAccountId(accountId)</span>
+<span class="nc" id="L70">            .map(existing -&gt; {</span>
+<span class="nc" id="L71">              existing.setToken(enc);</span>
+<span class="nc" id="L72">              return existing;</span>
+            })
+<span class="nc" id="L74">            .orElseGet(() -&gt; new TokenCredential(accountId, enc));</span>
+<span class="nc" id="L75">    repo.save(cred);</span>
+<span class="nc" id="L76">  }</span>
+
+  /**
+   * List account ids that currently have a persisted token.
+   *
+   * @return list of logical account ids
+   */
+  @Override
+  @Transactional(readOnly = true)
+  public List&lt;String&gt; listAccounts() {
+<span class="nc" id="L86">    return repo.listAccountIds();</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

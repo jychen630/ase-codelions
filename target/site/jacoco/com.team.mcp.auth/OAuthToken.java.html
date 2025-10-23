@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OAuthToken.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mcp</a> &gt; <a href="index.source.html" class="el_package">com.team.mcp.auth</a> &gt; <span class="el_source">OAuthToken.java</span></div><h1>OAuthToken.java</h1><pre class="source lang-java linenums">package com.team.mcp.auth;
+
+import java.time.Instant;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
+
+/**
+ * Minimal OAuth token record for a logical account.
+ *
+ * &lt;p&gt;Iteration-1: simple fields and timestamps. Replace or extend later
+ * with real Twitter OAuth tokens and scopes.
+ */
+@Entity
+@Table(name = &quot;oauth_tokens&quot;)
+public final class OAuthToken {
+
+  /** Max length for account id column. */
+  private static final int ACCOUNT_ID_MAX = 64;
+
+  /** Max length for token columns. */
+  private static final int TOKEN_MAX = 512;
+
+  /** Surrogate primary key. */
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
+
+  /** Logical account id (tenant). */
+  @Column(name = &quot;account_id&quot;, nullable = false, length = ACCOUNT_ID_MAX)
+  private String accountId;
+
+  /** Access token (base64 &quot;encrypted&quot; in Iteration-1). */
+  @Column(name = &quot;access_token&quot;, nullable = false, length = TOKEN_MAX)
+  private String accessToken;
+
+  /** Optional refresh token (base64 &quot;encrypted&quot;). */
+  @Column(name = &quot;refresh_token&quot;, length = TOKEN_MAX)
+  private String refreshToken;
+
+  /** Creation timestamp (UTC). */
+  @Column(name = &quot;created_at&quot;, nullable = false)
+  private Instant createdAt;
+
+  /** Update timestamp (UTC). */
+  @Column(name = &quot;updated_at&quot;, nullable = false)
+  private Instant updatedAt;
+
+  /** JPA requires a no-arg constructor. */
+<span class="fc" id="L55">  protected OAuthToken() {</span>
+    // for JPA
+<span class="fc" id="L57">  }</span>
+
+  /**
+   * Convenience constructor.
+   *
+   * @param accountIdValue logical account id
+   * @param accessTokenValue access token (already encoded if desired)
+   * @param refreshTokenValue refresh token (already encoded if desired)
+   */
+  public OAuthToken(
+      final String accountIdValue,
+      final String accessTokenValue,
+<span class="nc" id="L69">      final String refreshTokenValue) {</span>
+<span class="nc" id="L70">    this.accountId = accountIdValue;</span>
+<span class="nc" id="L71">    this.accessToken = accessTokenValue;</span>
+<span class="nc" id="L72">    this.refreshToken = refreshTokenValue;</span>
+<span class="nc" id="L73">  }</span>
+
+  /**
+   * Set timestamps on insert.
+   */
+  @PrePersist
+  void onCreate() {
+<span class="nc" id="L80">    final Instant now = Instant.now();</span>
+<span class="nc" id="L81">    this.createdAt = now;</span>
+<span class="nc" id="L82">    this.updatedAt = now;</span>
+<span class="nc" id="L83">  }</span>
+
+  /**
+   * Update timestamp on update.
+   */
+  @PreUpdate
+  void onUpdate() {
+<span class="nc" id="L90">    this.updatedAt = Instant.now();</span>
+<span class="nc" id="L91">  }</span>
+
+  /**
+   * Returns the primary key.
+   *
+   * @return id
+   */
+  public Long getId() {
+<span class="nc" id="L99">    return id;</span>
+  }
+
+  /**
+   * Returns the logical account id.
+   *
+   * @return account id
+   */
+  public String getAccountId() {
+<span class="nc" id="L108">    return accountId;</span>
+  }
+
+  /**
+   * Sets the logical account id.
+   *
+   * @param accountIdValue account id
+   */
+  public void setAccountId(final String accountIdValue) {
+<span class="nc" id="L117">    this.accountId = accountIdValue;</span>
+<span class="nc" id="L118">  }</span>
+
+  /**
+   * Returns the access token (stored encoded).
+   *
+   * @return access token
+   */
+  public String getAccessToken() {
+<span class="nc" id="L126">    return accessToken;</span>
+  }
+
+  /**
+   * Sets the access token (store encoded value).
+   *
+   * @param accessTokenValue token value
+   */
+  public void setAccessToken(final String accessTokenValue) {
+<span class="nc" id="L135">    this.accessToken = accessTokenValue;</span>
+<span class="nc" id="L136">  }</span>
+
+  /**
+   * Returns the refresh token (stored encoded) or null.
+   *
+   * @return refresh token or null
+   */
+  public String getRefreshToken() {
+<span class="nc" id="L144">    return refreshToken;</span>
+  }
+
+  /**
+   * Sets the refresh token (store encoded value).
+   *
+   * @param refreshTokenValue token value
+   */
+  public void setRefreshToken(final String refreshTokenValue) {
+<span class="nc" id="L153">    this.refreshToken = refreshTokenValue;</span>
+<span class="nc" id="L154">  }</span>
+
+  /**
+   * Returns creation timestamp (UTC).
+   *
+   * @return created time
+   */
+  public Instant getCreatedAt() {
+<span class="nc" id="L162">    return createdAt;</span>
+  }
+
+  /**
+   * Returns last update timestamp (UTC).
+   *
+   * @return updated time
+   */
+  public Instant getUpdatedAt() {
+<span class="nc" id="L171">    return updatedAt;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

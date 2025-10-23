@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SearchController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mcp</a> &gt; <a href="index.source.html" class="el_package">com.team.mcp.search</a> &gt; <span class="el_source">SearchController.java</span></div><h1>SearchController.java</h1><pre class="source lang-java linenums">package com.team.mcp.search;
+
+import com.team.mcp.twitter.dto.Tweet;
+import java.util.List;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * HTTP endpoints for tweet search and discovery.
+ */
+@RestController
+public final class SearchController {
+
+  /** Application search service (memory or DB-backed depending on config). */
+  private final SearchService svc;
+
+  /**
+   * Constructs the controller.
+   *
+   * @param service injected {@link SearchService}
+   */
+<span class="fc" id="L24">  public SearchController(final SearchService service) {</span>
+<span class="fc" id="L25">    this.svc = service;</span>
+<span class="fc" id="L26">  }</span>
+
+  /**
+   * Keyword/phrase search with AND/OR and pagination.
+   *
+   * &lt;p&gt;Examples:&lt;/p&gt;
+   * &lt;pre&gt;
+   *   /search?accountId=acctA&amp;q=&quot;seed tweet&quot; OR hello&amp;offset=0&amp;limit=10
+   * &lt;/pre&gt;
+   *
+   * @param accountId logical account id
+   * @param q raw query string (supports phrases in quotes and {@code OR})
+   * @param offset number of results to skip (for pagination)
+   * @param limit maximum number of results to return
+   * @return HTTP 200 with a list of matching {@link Tweet} DTOs
+   */
+  @GetMapping(&quot;/search&quot;)
+  public ResponseEntity&lt;List&lt;Tweet&gt;&gt; search(
+      @RequestParam(&quot;accountId&quot;) final String accountId,
+      @RequestParam(&quot;q&quot;) final String q,
+      @RequestParam(value = &quot;offset&quot;, defaultValue = &quot;0&quot;) final int offset,
+      @RequestParam(value = &quot;limit&quot;, defaultValue = &quot;20&quot;) final int limit) {
+
+<span class="nc" id="L49">    final List&lt;Tweet&gt; out = svc.search(accountId, q, offset, limit);</span>
+<span class="nc" id="L50">    return ResponseEntity.ok(out);</span>
+  }
+
+  /**
+   * Exact hashtag search (case-insensitive). Query must start with '#'.
+   *
+   * @param accountId logical account id
+   * @param q hashtag to search (must begin with '#')
+   * @param limit maximum number of results to return
+   * @return HTTP 400 with error map if {@code q} does not start with '#';
+   *         otherwise HTTP 200 with a list of matching {@link Tweet} DTOs
+   */
+  @GetMapping(&quot;/search/hashtags&quot;)
+  public ResponseEntity&lt;?&gt; hashtags(
+      @RequestParam(&quot;accountId&quot;) final String accountId,
+      @RequestParam(&quot;q&quot;) final String q,
+      @RequestParam(value = &quot;limit&quot;, defaultValue = &quot;20&quot;) final int limit) {
+
+<span class="nc bnc" id="L68" title="All 4 branches missed.">    if (q == null || !q.startsWith(&quot;#&quot;)) {</span>
+<span class="nc" id="L69">      return ResponseEntity.badRequest().body(</span>
+<span class="nc" id="L70">          java.util.Map.of(&quot;error&quot;, &quot;query must start with '#'&quot;));</span>
+    }
+<span class="nc" id="L72">    final List&lt;Tweet&gt; out = svc.searchHashtag(accountId, q, limit);</span>
+<span class="nc" id="L73">    return ResponseEntity.ok(out);</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>
