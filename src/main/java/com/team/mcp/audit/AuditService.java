@@ -4,7 +4,7 @@ import java.util.Objects;
 import org.springframework.stereotype.Service;
 
 /**
- * Small facade to persist audit rows.
+ * Small facade to write audit rows to the database.
  */
 @Service
 public final class AuditService {

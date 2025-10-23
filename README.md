@@ -161,6 +161,32 @@ src/main/java/com/team/mcp/
 
 ---
 
+## API Documentation
+
+Each functional module includes its own detailed API specification covering
+available endpoints, expected inputs/outputs, error/status codes, and any
+call-order constraints.  
+
+Use the links below to navigate directly to the documentation for each module:
+
+| Module | Description | API Documentation |
+|---------|--------------|-------------------|
+| **MCP Core** | Main JSON-RPC 2.0 `/mcp` interface and tool registry | [MCP API Docs](./src/main/java/com/team/mcp/mcp/Mcp.md) |
+| **Authentication** | OAuth-style token flow and credential management | [Auth API Docs](./src/main/java/com/team/mcp/auth/Audit.md) |
+| **Search & Discovery** | Keyword and hashtag search endpoints | [Search API Docs](./src/main/java/com/team/mcp/search/SearchAndDiscovery.md) |
+| **Scheduling** | Tweet scheduling and delayed posting | [Scheduling API Docs](./src/main/java/com/team/mcp/scheduling/Scheduling.md) |
+| **Analytics** | Timeline and posting analytics endpoints | [Analytics API Docs](./src/main/java/com/team/mcp/analytics/Analytics.md) |
+| **Audit & Logging** | Audit trail for tool calls and request logs | [Audit API Docs](./src/main/java/com/team/mcp/audit/Audit.md) |
+
+Each linked file documents:
+- Endpoint paths and HTTP/JSON-RPC methods  
+- Input parameters and expected data schemas  
+- Output objects and example responses  
+- Error/status codes (e.g. 200, 400, 404, 500)  
+- Any call-order dependencies or restrictions
+
+---
+
 ## Iteration 1 Deliverables
 
 1. Functional MCP JSON-RPC server
