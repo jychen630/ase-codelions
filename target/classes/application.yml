@@ -1,0 +1,56 @@
+# Default settings (used unless a profile overrides them)
+app:
+  fakeTwitter: true                 # use FakeTwitterClient in Iteration-1
+  publisher:
+    fixedDelay: 15000               # scheduler tick every 15s
+
+logging:
+  level:
+    com.team.mcp.scheduling: INFO   # visible scheduler logs
+
+spring:
+  flyway:
+    enabled: false                  # disable Flyway for Iteration-1 (H2 + JPA auto-ddl)
+  jpa:
+    hibernate:
+      ddl-auto: update              # create/update tables automatically
+    open-in-view: false
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    driverClassName: org.h2.Driver
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+---
+# Test profile overrides (when you run with -Dspring-boot.run.profiles=test)
+spring:
+  config:
+    activate:
+      on-profile: test
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    driverClassName: org.h2.Driver
+    username: sa
+    password:
+  flyway:
+    enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: update
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+app:
+  fakeTwitter: true
+  publisher:
+    fixedDelay: 15000
+
+logging:
+  level:
+    com.team.mcp.scheduling: INFO
