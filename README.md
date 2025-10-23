@@ -4,10 +4,10 @@
 
 ## Overview
 
-This project implements a modular **Multi-Client Platform (MCP)** that simulates a scalable backend for managing and analyzing Twitter-like data.
+This project implements a modular **Model Context Protocol (MCP) server** that simulates a scalable backend for managing and analyzing Twitter-like data.
 It supports authentication, search, scheduling, analytics, and auditing — all exposed through a JSON-RPC 2.0 MCP interface (`/mcp`).
 
-The system is built with **Spring Boot**, uses **Flyway** for schema migrations, and relies on **H2 (file-mode)** for persistent development storage (PostgreSQL-compatible).
+The system is built with **Spring Boot**, uses **Flyway** for database schema migrations, and relies on **H2 (file-mode)** for persistent development storage (PostgreSQL-compatible).
 
 ---
 
@@ -69,7 +69,8 @@ The system is built with **Spring Boot**, uses **Flyway** for schema migrations,
 | **Line Coverage**         | ~74%                       |
 | **Branch Coverage**       | ~62%                       |
 | **Total Classes Tested**  | 55                         |
-| **Static Analysis Tools** | Checkstyle, PMD, SpotBugs  |
+| **Style Checking**        | Checkstyle (default ruleset: sun_checks.xml)                         |
+| **Static Analysis Tools** | PMD (default Java rulset)            |
 | **Test Framework**        | JUnit 5 + Spring Boot Test |
 | **Build Tool**            | Maven 3.9+                 |
 
@@ -79,6 +80,13 @@ The system is built with **Spring Boot**, uses **Flyway** for schema migrations,
 * Highest: `tools`, `auth.web`, `timeline`, and `security` (90–100%).
 * Core MCP package: 72%.
 * All critical logic paths covered in search, analytics, and scheduling.
+
+To generate reports:
+```bash
+mvn checkstyle:check
+mvn pmd:pmd
+```
+We have included checkstyle and pmd reports for our latest tagged release (v1.0) under target/site/ in this repo.
 
 ---
 
