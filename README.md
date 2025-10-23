@@ -88,7 +88,7 @@ mvn pmd:pmd
 ```
 We have included checkstyle and pmd reports for our latest tagged release (v1.0) under target/site/ in this repo.
 
-Test configuration files are under src/test in this repo.
+Test configuration files are under src/test in this repo. Branch coverage report is under target/site/jacoco/index.html.
 
 ---
 
