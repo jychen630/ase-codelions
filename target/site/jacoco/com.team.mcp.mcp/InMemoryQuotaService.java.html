@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>InMemoryQuotaService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mcp</a> &gt; <a href="index.source.html" class="el_package">com.team.mcp.mcp</a> &gt; <span class="el_source">InMemoryQuotaService.java</span></div><h1>InMemoryQuotaService.java</h1><pre class="source lang-java linenums">package com.team.mcp.mcp;
+
+import org.springframework.stereotype.Service;
+
+/**
+ * Simple in-memory quota service for Iteration-1.
+ *
+ * &lt;p&gt;Provides fixed demo values so the MCP tools can report a quota
+ * status without requiring a DB. Replace later with a persistent
+ * implementation.
+ */
+@Service
+<span class="fc" id="L13">public final class InMemoryQuotaService implements QuotaService {</span>
+
+  /** Demo limit for reads. */
+  private static final int READ_MAX = 100;
+  /** Demo limit for writes. */
+  private static final int WRITE_MAX = 500;
+
+  /** Initial demo value for reads used (avoid magic number). */
+  private static final int INIT_READS = 5;
+  /** Initial demo value for writes used (avoid magic number). */
+  private static final int INIT_WRITES = 12;
+
+  /** Demo used reads. */
+<span class="fc" id="L26">  private int reads = INIT_READS;</span>
+  /** Demo used writes. */
+<span class="fc" id="L28">  private int writes = INIT_WRITES;</span>
+
+  @Override
+  public int readsUsed() {
+<span class="fc" id="L32">    return reads;</span>
+  }
+
+  @Override
+  public int readsMax() {
+<span class="fc" id="L37">    return READ_MAX;</span>
+  }
+
+  @Override
+  public int writesUsed() {
+<span class="fc" id="L42">    return writes;</span>
+  }
+
+  @Override
+  public int writesMax() {
+<span class="fc" id="L47">    return WRITE_MAX;</span>
+  }
+
+  @Override
+  public String resetPeriodIso() {
+<span class="fc" id="L52">    return &quot;monthly&quot;;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

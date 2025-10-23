@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>McpResponse.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mcp</a> &gt; <a href="index.source.html" class="el_package">com.team.mcp.mcp.dto</a> &gt; <span class="el_source">McpResponse.java</span></div><h1>McpResponse.java</h1><pre class="source lang-java linenums">package com.team.mcp.mcp.dto;
+
+import java.util.Map;
+
+/**
+ * Minimal JSON-RPC 2.0 response DTO for MCP.
+ *
+ * &lt;p&gt;This is modeled as a Java {@code record} so each component is a
+ * public final field with an accessor. Checkstyle requires documenting
+ * each component using {@code @param} tags.&lt;/p&gt;
+ *
+ * @param jsonrpc the JSON-RPC protocol version (e.g. {@code &quot;2.0&quot;})
+ * @param result  the success payload when the call succeeds; null on error
+ * @param error   the error payload when the call fails; null on success
+ * @param id      the request identifier echoed back to the client
+ */
+<span class="fc" id="L17">public record McpResponse(</span>
+    String jsonrpc,
+    Object result,
+    ErrorObj error,
+    Object id
+) {
+
+  /**
+   * Build a success response.
+   *
+   * @param id request id
+   * @param result result object (placed under {@code result})
+   * @return response
+   */
+  public static McpResponse result(
+      final Object id, final Map&lt;String, Object&gt; result) {
+<span class="fc" id="L33">    return new McpResponse(&quot;2.0&quot;, result, null, id);</span>
+  }
+
+  /**
+   * Build an error response.
+   *
+   * @param id request id
+   * @param code JSON-RPC error code
+   * @param message human-readable error message
+   * @return response
+   */
+  public static McpResponse error(
+      final Object id, final int code, final String message) {
+<span class="fc" id="L46">    return new McpResponse(&quot;2.0&quot;, null,</span>
+        new ErrorObj(code, message), id);
+  }
+
+  /**
+   * Error object for JSON-RPC responses.
+   *
+   * @param code JSON-RPC error code
+   * @param message human-readable error message
+   */
+<span class="fc" id="L56">  public record ErrorObj(int code, String message) { }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

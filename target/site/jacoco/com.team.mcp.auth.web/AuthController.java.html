@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AuthController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mcp</a> &gt; <a href="index.source.html" class="el_package">com.team.mcp.auth.web</a> &gt; <span class="el_source">AuthController.java</span></div><h1>AuthController.java</h1><pre class="source lang-java linenums">package com.team.mcp.auth.web;
+
+import com.team.mcp.auth.TwitterOAuthClient;
+import com.team.mcp.auth.TokenStore;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * Iteration-1 OAuth flow controller.
+ *
+ * &lt;p&gt;Endpoints:
+ * &lt;ul&gt;
+ *   &lt;li&gt;&lt;b&gt;GET /auth/start&lt;/b&gt; – returns a JSON object with an
+ *       authorization URL (simulated). Call this first.&lt;/li&gt;
+ *   &lt;li&gt;&lt;b&gt;GET /auth/callback&lt;/b&gt; – simulated callback that exchanges
+ *       a code for a token and persists it via {@link TokenStore}.&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * &lt;p&gt;Notes:
+ * &lt;ul&gt;
+ *   &lt;li&gt;No real Twitter calls yet; {@link TwitterOAuthClient} is a stub.&lt;/li&gt;
+ *   &lt;li&gt;State is stored in-memory with a short TTL for the demo.&lt;/li&gt;
+ * &lt;/ul&gt;
+ */
+@RestController
+@RequestMapping(
+    path = &quot;/auth&quot;,
+    produces = MediaType.APPLICATION_JSON_VALUE)
+public final class AuthController {
+
+  /** Time-to-live for saved state entries. */
+<span class="fc" id="L42">  private static final Duration STATE_TTL = Duration.ofMinutes(10);</span>
+
+  /** In-memory map: state -&gt; (accountId, createdAt). */
+<span class="fc" id="L45">  private final Map&lt;String, StateRow&gt; states = new ConcurrentHashMap&lt;&gt;();</span>
+
+  /** Stub OAuth client used to build URLs and mint fake tokens. */
+  private final TwitterOAuthClient oauth;
+
+  /** Token persistence (DB-backed in iteration-1). */
+  private final TokenStore tokenStore;
+
+  /**
+   * Creates the controller.
+   *
+   * @param oauthClient stub OAuth client
+   * @param store token persistence
+   */
+  public AuthController(
+      final TwitterOAuthClient oauthClient,
+<span class="fc" id="L61">      final TokenStore store) {</span>
+<span class="fc" id="L62">    this.oauth = Objects.requireNonNull(oauthClient, &quot;oauth&quot;);</span>
+<span class="fc" id="L63">    this.tokenStore = Objects.requireNonNull(store, &quot;tokenStore&quot;);</span>
+<span class="fc" id="L64">  }</span>
+
+  /**
+   * Begin the OAuth flow. Returns a JSON body with an
+   * {@code authorize_url} you can paste in a browser
+   * (simulated for iteration-1).
+   *
+   * @param accountId logical account id / tenant id
+   * @return JSON with {@code authorize_url}, {@code state}, and
+   *     {@code callback}
+   */
+  @GetMapping(&quot;/start&quot;)
+  public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; start(
+      @RequestParam(&quot;accountId&quot;) final String accountId) {
+<span class="nc" id="L78">    final String state = UUID.randomUUID().toString();</span>
+<span class="nc" id="L79">    states.put(state, new StateRow(accountId, Instant.now()));</span>
+<span class="nc" id="L80">    final String url = oauth.buildAuthorizeUrl(state);</span>
+<span class="nc" id="L81">    return ResponseEntity.ok(Map.of(</span>
+        &quot;authorize_url&quot;, url,
+        &quot;state&quot;, state,
+        &quot;callback&quot;, TwitterOAuthClient.CALLBACK));
+  }
+
+  /**
+   * OAuth callback endpoint (simulated).
+   *
+   * @param state original CSRF state
+   * @param code authorization code
+   * @return JSON result message
+   */
+  @GetMapping(&quot;/callback&quot;)
+  public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; callback(
+      @RequestParam(&quot;state&quot;) final String state,
+      @RequestParam(&quot;code&quot;) final String code) {
+
+<span class="nc" id="L99">    final StateRow row = states.remove(state);</span>
+<span class="nc bnc" id="L100" title="All 4 branches missed.">    if (row == null || isExpired(row)) {</span>
+<span class="nc" id="L101">      return ResponseEntity.badRequest().body(Map.of(</span>
+          &quot;status&quot;, &quot;error&quot;,
+          &quot;message&quot;, &quot;invalid or expired state&quot;));
+    }
+
+<span class="nc" id="L106">    final String token = oauth.exchangeCodeForAccessToken(code);</span>
+<span class="nc" id="L107">    tokenStore.put(row.accountId, token);</span>
+
+<span class="nc" id="L109">    return ResponseEntity.ok(Map.of(</span>
+        &quot;status&quot;, &quot;ok&quot;,
+        &quot;accountId&quot;, row.accountId,
+        &quot;stored&quot;, Boolean.TRUE));
+  }
+
+  /**
+   * Returns whether a stored state row has expired.
+   *
+   * @param row state row to check
+   * @return {@code true} if expired; otherwise {@code false}
+   */
+  private boolean isExpired(final StateRow row) {
+<span class="nc" id="L122">    return row.created.plus(STATE_TTL).isBefore(Instant.now());</span>
+  }
+
+  /** Small immutable record for state storage. */
+  private static final class StateRow {
+    /** Logical account id / tenant id. */
+    private final String accountId;
+    /** Creation instant (UTC). */
+    private final Instant created;
+
+    /**
+     * Constructs a state row.
+     *
+     * @param accId logical account id
+     * @param createdAt creation instant
+     */
+<span class="nc" id="L138">    private StateRow(final String accId, final Instant createdAt) {</span>
+<span class="nc" id="L139">      this.accountId = accId;</span>
+<span class="nc" id="L140">      this.created = createdAt;</span>
+<span class="nc" id="L141">    }</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

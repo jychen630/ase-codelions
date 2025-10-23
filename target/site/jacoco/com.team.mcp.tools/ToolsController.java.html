@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ToolsController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mcp</a> &gt; <a href="index.source.html" class="el_package">com.team.mcp.tools</a> &gt; <span class="el_source">ToolsController.java</span></div><h1>ToolsController.java</h1><pre class="source lang-java linenums">package com.team.mcp.tools;
+
+import com.team.mcp.security.TokenProvider;
+import com.team.mcp.scheduling.SchedulingService;
+import com.team.mcp.timeline.TimelineService;
+import java.time.Instant;
+import java.util.Map;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * Minimal tools API used by the front-end / tests for Iteration-1.
+ *
+ * &lt;p&gt;Endpoints:
+ * &lt;ul&gt;
+ *   &lt;li&gt;/tools/get_home_timeline — returns recent tweets&lt;/li&gt;
+ *   &lt;li&gt;/tools/schedule_tweet — schedules a tweet for a future time&lt;/li&gt;
+ * &lt;/ul&gt;
+ */
+@RestController
+@RequestMapping(&quot;/tools&quot;)
+public class ToolsController {
+
+  /** Default count when the client does not specify one. */
+  private static final int DEFAULT_COUNT = 20;
+
+  /** Service that reads timelines from the client abstraction. */
+  private final TimelineService timelineService;
+
+  /** Service that persists and publishes scheduled tweets. */
+  private final SchedulingService schedulingService;
+
+  /** Provider that resolves the caller's logical account id. */
+  private final TokenProvider tokenProvider;
+
+  /**
+   * Creates a controller with required dependencies.
+   *
+   * @param timelineSvc timeline service
+   * @param schedulingSvc scheduling service
+   * @param tokenProv token provider
+   */
+  public ToolsController(final TimelineService timelineSvc,
+                         final SchedulingService schedulingSvc,
+<span class="fc" id="L49">                         final TokenProvider tokenProv) {</span>
+<span class="fc" id="L50">    this.timelineService = timelineSvc;</span>
+<span class="fc" id="L51">    this.schedulingService = schedulingSvc;</span>
+<span class="fc" id="L52">    this.tokenProvider = tokenProv;</span>
+<span class="fc" id="L53">  }</span>
+
+  /**
+   * Returns a bounded number of tweets for the caller's home timeline.
+   *
+   * &lt;p&gt;Request body shape:
+   * &lt;pre&gt;
+   * {
+   *   &quot;tool&quot;: &quot;get_home_timeline&quot;,
+   *   &quot;params&quot;: {&quot;count&quot;: 2}
+   * }
+   * &lt;/pre&gt;
+   *
+   * @param body request payload
+   * @return JSON with an array field {@code tweets}
+   */
+  @PostMapping(&quot;/get_home_timeline&quot;)
+  public ResponseEntity&lt;?&gt; getHomeTimeline(
+      @RequestBody final Map&lt;String, Object&gt; body) {
+
+<span class="nc" id="L73">    final Object paramsObj = body.getOrDefault(&quot;params&quot;, Map.of());</span>
+    @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L75">    final Map&lt;String, Object&gt; params = (Map&lt;String, Object&gt;) paramsObj;</span>
+
+    final int count =
+<span class="nc bnc" id="L78" title="All 2 branches missed.">        params.get(&quot;count&quot;) instanceof Number</span>
+<span class="nc" id="L79">            ? ((Number) params.get(&quot;count&quot;)).intValue()</span>
+<span class="nc" id="L80">            : DEFAULT_COUNT;</span>
+
+<span class="nc" id="L82">    final String accountId = tokenProvider.accountIdForCaller();</span>
+
+<span class="nc" id="L84">    return ResponseEntity.ok(</span>
+<span class="nc" id="L85">        Map.of(&quot;tweets&quot;, timelineService.getHomeTimeline(accountId, count)));</span>
+  }
+
+  /**
+   * Schedules a tweet for a future time. If the provided time is in the past,
+   * responds with HTTP 400.
+   *
+   * &lt;p&gt;Request body shape:
+   * &lt;pre&gt;
+   * {
+   *   &quot;tool&quot;: &quot;schedule_tweet&quot;,
+   *   &quot;params&quot;: {&quot;text&quot;: &quot;...&quot;, &quot;time&quot;: &quot;2025-10-01T12:00:00Z&quot;}
+   * }
+   * &lt;/pre&gt;
+   *
+   * @param body request payload
+   * @return JSON with {@code status}, {@code id}, and {@code scheduled_for}
+   */
+  @PostMapping(&quot;/schedule_tweet&quot;)
+  public ResponseEntity&lt;?&gt; scheduleTweet(
+      @RequestBody final Map&lt;String, Object&gt; body) {
+
+<span class="nc" id="L107">    final Object paramsObj = body.getOrDefault(&quot;params&quot;, Map.of());</span>
+    @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L109">    final Map&lt;String, Object&gt; params = (Map&lt;String, Object&gt;) paramsObj;</span>
+
+<span class="nc" id="L111">    final String text = String.valueOf(params.get(&quot;text&quot;));</span>
+<span class="nc" id="L112">    final Instant runAt = Instant.parse(String.valueOf(params.get(&quot;time&quot;)));</span>
+
+<span class="nc bnc" id="L114" title="All 2 branches missed.">    if (runAt.isBefore(Instant.now())) {</span>
+<span class="nc" id="L115">      return ResponseEntity.status(HttpStatus.BAD_REQUEST)</span>
+<span class="nc" id="L116">          .body(Map.of(</span>
+              &quot;status&quot;, &quot;error&quot;,
+              &quot;reason&quot;, &quot;time must be in the future&quot;));
+    }
+
+<span class="nc" id="L121">    final String accountId = tokenProvider.accountIdForCaller();</span>
+<span class="nc" id="L122">    final String id = schedulingService.schedule(text, runAt, accountId);</span>
+
+<span class="nc" id="L124">    return ResponseEntity.ok(</span>
+<span class="nc" id="L125">        Map.of(</span>
+            &quot;status&quot;, &quot;scheduled&quot;,
+            &quot;id&quot;, id,
+            &quot;text&quot;, text,
+<span class="nc" id="L129">            &quot;scheduled_for&quot;, runAt.toString()));</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

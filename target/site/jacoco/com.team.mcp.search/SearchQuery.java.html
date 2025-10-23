@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SearchQuery.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mcp</a> &gt; <a href="index.source.html" class="el_package">com.team.mcp.search</a> &gt; <span class="el_source">SearchQuery.java</span></div><h1>SearchQuery.java</h1><pre class="source lang-java linenums">package com.team.mcp.search;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Parsed search query supporting the following.
+ * &lt;ul&gt;
+ *   &lt;li&gt;&lt;b&gt;AND&lt;/b&gt; within a clause (tokens + phrases)&lt;/li&gt;
+ *   &lt;li&gt;&lt;b&gt;OR&lt;/b&gt; across clauses (by the literal token {@code &quot;OR&quot;})&lt;/li&gt;
+ *   &lt;li&gt;Phrases inside double quotes&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * &lt;p&gt;Examples:
+ * &lt;pre&gt;
+ *   hello world            -&gt; one clause: [&quot;hello&quot;,&quot;world&quot;]
+ *   hello OR &quot;seed tweet&quot;  -&gt; two clauses
+ * &lt;/pre&gt;
+ */
+public final class SearchQuery {
+
+  /**
+   * A single OR-clause: all tokens/phrases inside the clause must match
+   * (logical AND).
+   */
+<span class="fc" id="L26">  public static final class Clause {</span>
+
+    /** Lowercased AND-terms that must all appear for a match. */
+<span class="fc" id="L29">    private final List&lt;String&gt; terms = new ArrayList&lt;&gt;();</span>
+
+    /** Lowercased quoted phrases that must all appear for a match. */
+<span class="fc" id="L32">    private final List&lt;String&gt; phrases = new ArrayList&lt;&gt;();</span>
+
+    /**
+     * Adds a single term to this clause (ignored if null/blank).
+     *
+     * @param t term to add; will be normalized to lower case
+     */
+    void addTerm(final String t) {
+<span class="pc bpc" id="L40" title="2 of 4 branches missed.">      if (t != null &amp;&amp; !t.isBlank()) {</span>
+<span class="fc" id="L41">        terms.add(t.toLowerCase());</span>
+      }
+<span class="fc" id="L43">    }</span>
+
+    /**
+     * Adds a quoted phrase to this clause (ignored if null/blank).
+     *
+     * @param p phrase to add; will be normalized to lower case
+     */
+    void addPhrase(final String p) {
+<span class="pc bpc" id="L51" title="2 of 4 branches missed.">      if (p != null &amp;&amp; !p.isBlank()) {</span>
+<span class="fc" id="L52">        phrases.add(p.toLowerCase());</span>
+      }
+<span class="fc" id="L54">    }</span>
+
+    /**
+     * Returns the list of lowercased AND-terms.
+     *
+     * @return list of terms (never null)
+     */
+    public List&lt;String&gt; terms() {
+<span class="fc" id="L62">      return terms;</span>
+    }
+
+    /**
+     * Returns the list of lowercased quoted phrases.
+     *
+     * @return list of phrases (never null)
+     */
+    public List&lt;String&gt; phrases() {
+<span class="fc" id="L71">      return phrases;</span>
+    }
+  }
+
+  /** Ordered list of OR-clauses that make up the whole query. */
+  private final List&lt;Clause&gt; clauses;
+
+  /**
+   * Constructs a query from already-parsed clauses.
+   *
+   * @param cs the OR-clauses composing this query
+   */
+<span class="fc" id="L83">  private SearchQuery(final List&lt;Clause&gt; cs) {</span>
+<span class="fc" id="L84">    this.clauses = cs;</span>
+<span class="fc" id="L85">  }</span>
+
+  /**
+   * Returns the list of OR-clauses (AND inside each clause).
+   *
+   * @return list of clauses (never null)
+   */
+  public List&lt;Clause&gt; clauses() {
+<span class="fc" id="L93">    return clauses;</span>
+  }
+
+  /**
+   * Parses a human query into OR-clauses and AND-tokens.
+   *
+   * &lt;p&gt;Splits on the token {@code OR} (case-insensitive), extracts quoted
+   * phrases, and treats remaining whitespace-separated tokens as AND-terms.
+   *
+   * @param raw raw query string (may be null/blank)
+   * @return a {@link SearchQuery} representing the parsed structure
+   */
+  public static SearchQuery parse(final String raw) {
+<span class="pc bpc" id="L106" title="1 of 2 branches missed.">    final String q = raw == null ? &quot;&quot; : raw.trim();</span>
+<span class="fc" id="L107">    final List&lt;String&gt; parts = splitByOr(q);</span>
+<span class="fc" id="L108">    final List&lt;Clause&gt; out = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L109" title="All 2 branches covered.">    for (String p : parts) {</span>
+<span class="fc" id="L110">      out.add(parseClause(p));</span>
+<span class="fc" id="L111">    }</span>
+<span class="fc" id="L112">    return new SearchQuery(out);</span>
+  }
+
+  /**
+   * Splits a string by {@code OR} when used as a separate token
+   * (case-insensitive).
+   *
+   * @param s input string (never mutated)
+   * @return non-empty list of segments; if no content, a single empty segment
+   */
+  private static List&lt;String&gt; splitByOr(final String s) {
+    // Simple split on OR as a separate token (case-insensitive).
+<span class="fc" id="L124">    final List&lt;String&gt; out = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L125">    final String[] tokens = s.split(&quot;(?i)\\s+OR\\s+&quot;);</span>
+<span class="fc bfc" id="L126" title="All 2 branches covered.">    for (String t : tokens) {</span>
+<span class="fc" id="L127">      final String x = t.trim();</span>
+<span class="pc bpc" id="L128" title="1 of 2 branches missed.">      if (!x.isBlank()) {</span>
+<span class="fc" id="L129">        out.add(x);</span>
+      }
+    }
+<span class="pc bpc" id="L132" title="1 of 2 branches missed.">    if (out.isEmpty()) {</span>
+<span class="nc" id="L133">      out.add(&quot;&quot;);</span>
+    }
+<span class="fc" id="L135">    return out;</span>
+  }
+
+  /**
+   * Parses a single clause into its phrases and remaining terms.
+   *
+   * @param s clause text
+   * @return a populated {@link Clause}
+   */
+  private static Clause parseClause(final String s) {
+<span class="fc" id="L145">    final Clause c = new Clause();</span>
+
+    // Extract phrases &quot;like this&quot;
+<span class="fc" id="L148">    final StringBuilder sb = new StringBuilder();</span>
+<span class="fc" id="L149">    boolean inQuote = false;</span>
+<span class="fc" id="L150">    final List&lt;String&gt; phrases = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L151" title="All 2 branches covered.">    for (int i = 0; i &lt; s.length(); i++) {</span>
+<span class="fc" id="L152">      final char ch = s.charAt(i);</span>
+<span class="fc bfc" id="L153" title="All 2 branches covered.">      if (ch == '&quot;') {</span>
+<span class="fc bfc" id="L154" title="All 2 branches covered.">        inQuote = !inQuote;</span>
+<span class="fc bfc" id="L155" title="All 2 branches covered.">        if (!inQuote) {</span>
+<span class="fc" id="L156">          final String phrase = sb.toString().trim();</span>
+<span class="pc bpc" id="L157" title="1 of 2 branches missed.">          if (!phrase.isEmpty()) {</span>
+<span class="fc" id="L158">            phrases.add(phrase);</span>
+          }
+<span class="fc" id="L160">          sb.setLength(0);</span>
+<span class="fc" id="L161">        }</span>
+<span class="fc bfc" id="L162" title="All 2 branches covered.">      } else if (inQuote) {</span>
+<span class="fc" id="L163">        sb.append(ch);</span>
+      }
+    }
+<span class="fc bfc" id="L166" title="All 2 branches covered.">    for (String ph : phrases) {</span>
+<span class="fc" id="L167">      c.addPhrase(ph);</span>
+<span class="fc" id="L168">    }</span>
+
+    // Remove phrases from the clause string; split remaining by spaces.
+<span class="fc" id="L171">    final String noPhrases = s.replaceAll(&quot;\&quot;[^\&quot;]*\&quot;&quot;, &quot; &quot;).trim();</span>
+<span class="fc bfc" id="L172" title="All 2 branches covered.">    for (String term : noPhrases.split(&quot;\\s+&quot;)) {</span>
+<span class="fc bfc" id="L173" title="All 2 branches covered.">      if (!term.isBlank()) {</span>
+<span class="fc" id="L174">        c.addTerm(term);</span>
+      }
+    }
+<span class="fc" id="L177">    return c;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

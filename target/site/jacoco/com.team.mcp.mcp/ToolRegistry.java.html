@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ToolRegistry.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mcp</a> &gt; <a href="index.source.html" class="el_package">com.team.mcp.mcp</a> &gt; <span class="el_source">ToolRegistry.java</span></div><h1>ToolRegistry.java</h1><pre class="source lang-java linenums">package com.team.mcp.mcp;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+/**
+ * Registry that discovers all {@link Tool} beans and exposes them by name for
+ * the MCP service. Insertion order is preserved for stable listing.
+ */
+@Component
+public final class ToolRegistry {
+
+  /** Map of tool name to tool instance. */
+<span class="fc" id="L18">  private final Map&lt;String, Tool&gt; byName = new LinkedHashMap&lt;&gt;();</span>
+
+  /**
+   * Primary Spring constructor: Boot injects all Tool beans found via component
+   * scan.
+   *
+   * @param toolBeans discovered tools (never null)
+   */
+  @Autowired
+<span class="fc" id="L27">  public ToolRegistry(final List&lt;Tool&gt; toolBeans) {</span>
+<span class="fc bfc" id="L28" title="All 2 branches covered.">    for (Tool t : toolBeans) {</span>
+<span class="fc" id="L29">      byName.put(t.name(), t);</span>
+<span class="fc" id="L30">    }</span>
+<span class="fc" id="L31">  }</span>
+
+  /**
+   * Convenience constructor for tests (same package). Not for Spring
+   * autowiring.
+   *
+   * @param toolBeans tools provided directly (e.g., new EchoTool(),
+   *     new CheckQuotaTool())
+   */
+  ToolRegistry(final Tool... toolBeans) {
+<span class="fc" id="L41">    this(List.of(toolBeans));</span>
+<span class="fc" id="L42">  }</span>
+
+  /**
+   * Resolve a tool by name.
+   *
+   * @param name tool name
+   * @return the tool or {@code null} if not found
+   */
+  public Tool get(final String name) {
+<span class="fc" id="L51">    return byName.get(name);</span>
+  }
+
+  /**
+   * Return MCP tool descriptors for tools/list.
+   *
+   * @return list of maps with name/description
+   */
+  public List&lt;Map&lt;String, Object&gt;&gt; listDescriptors() {
+<span class="fc" id="L60">    final List&lt;Map&lt;String, Object&gt;&gt; out = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L61" title="All 2 branches covered.">    for (Map.Entry&lt;String, Tool&gt; e : byName.entrySet()) {</span>
+<span class="fc" id="L62">      out.add(</span>
+<span class="fc" id="L63">          Map.of(</span>
+<span class="fc" id="L64">              &quot;name&quot;, e.getKey(),</span>
+<span class="fc" id="L65">              &quot;description&quot;, e.getValue().description()</span>
+          )
+      );
+<span class="fc" id="L68">    }</span>
+<span class="fc" id="L69">    return out;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>
