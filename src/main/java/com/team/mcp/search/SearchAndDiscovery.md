@@ -12,7 +12,7 @@ Results are ranked by (1) match score (phrases count double) and then (2) recenc
 
 ---
 
-## Where the code lives (this is your actual directory)
+## Where the code lives
 
 `src/main/java/com/team/mcp/search/`
 
