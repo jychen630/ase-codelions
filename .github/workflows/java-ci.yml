@@ -2,9 +2,9 @@ name: Java CI
 
 on:
   push:
-    branches: [ main, "feature/mcp-server-Iteration2-Ioannis" ]
+    branches: [ main, feature/mcp-server-Iteration2-Ioannis ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, feature/mcp-server-Iteration2-Ioannis ]
 
 jobs:
   build:
