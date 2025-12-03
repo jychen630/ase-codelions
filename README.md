@@ -60,8 +60,7 @@ mvn -q spring-boot:run
 ### Run using DB mode (Iteration 1 style)
 
 ```
-mvn -q spring-boot:run \
- -Dspring-boot.run.arguments="--app.search.source=db"
+mvn -q spring-boot:run   -Dspring-boot.run.profiles=devdb   -Dspring-boot.run.arguments="--app.fakeTwitter=false --app.search.source=db"
 ```
 
 ### Run the NLP Client
