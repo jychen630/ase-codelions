@@ -588,5 +588,3 @@ The cloud instance defaults to timeline mode, but DB mode remains useful for det
 
 
 ---
-
-If you would like, we can format this as a polished PDF, a GitHub README, or a slide deck.
