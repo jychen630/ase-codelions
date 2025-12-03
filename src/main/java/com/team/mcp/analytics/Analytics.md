@@ -1,4 +1,4 @@
-# **Analytics — Iteration 2 (Final Version)**
+# **Analytics — Iteration 2**
 
 ---
 
