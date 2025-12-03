@@ -1,286 +1,592 @@
-# **Iteration 2 — Final Version**
+# **MCP Server – Iteration 2 Documentation**
 
 ---
 
 ## **1. Overview**
 
-This project implements the final version of our social-media automation service.
-Iteration 2 transforms the prototype from Iteration 1 into a fully functional, cloud-deployed system with:
+This project implements a Multi-Client Platform (MCP) backend that automates social media tasks for a Mastodon account, including:
 
-* Real Mastodon OAuth 2.0 authentication
-* Real posting and real searching against the user’s Mastodon timeline
-* Scheduling with background execution
-* Analytics (sentiment, hashtag extraction, best posting hours)
-* Full auditing subsystem
-* MCP tools over JSON-RPC
-* Natural-language client that drives all features
-* Continuous Integration + Static Analysis (Checkstyle, PMD, SpotBugs)
-* Automated + manual end-to-end tests
-* Deployment on Railway (cloud URL submitted for grading)
-
-All code and tests live in the main branch as required.
+* OAuth-based authentication
+* Timeline search (keywords, boolean operators, hashtags)
+* Scheduling posts
+* Analytics (sentiment, top hours, summary)
+* Audit logging of tool calls
+* MCP / JSON-RPC tool layer
+* A Python natural-language (NL) client that drives the system
 
 ---
 
-## **2. What Changed from Iteration 1**
+## **1.1 Why Mastodon instead of Twitter**
 
-Iteration 1 used mock data and fake authentication.
+The original concept involved Twitter. However, current Twitter Developer API pricing makes realistic experimentation difficult. Posting and search capabilities exist only in paid tiers costing approximately $100–$200 per month, which is not feasible for coursework.
 
-Iteration 2 includes major upgrades:
+Mastodon provides:
 
-| Feature    | Iteration 1     | Iteration 2                                       |
-| ---------- | --------------- | ------------------------------------------------- |
-| OAuth      | Mock            | Real Mastodon OAuth + token storage               |
-| Posting    | Local no-op     | Real Mastodon API posting                         |
-| Search     | In-memory mock  | Live Mastodon timeline search (AND/OR + hashtags) |
-| Scheduling | No real posting | Background posting to Mastodon                    |
-| Analytics  | Mock counters   | Real ML sentiment, real best hours                |
-| Audit      | Basic logging   | Full audit API + summaries                        |
-| Client     | Only REST       | NLP client (AI-like) + MCP                        |
-| Deployment | Local only      | Railway cloud deployment                          |
+* an open REST + OAuth API
+* the ability to post and read timelines at no cost
+* behavior similar enough to Twitter for the project’s goals
 
-No required feature was omitted.
+For these reasons, Iteration 2 uses Mastodon (mastodon.social) while retaining the same architecture and functional plan.
 
 ---
 
-## **3. How to Build and Run Locally**
+## **1.2 Why a custom NL client instead of a hosted AI**
 
-### Requirements
+The specification expects an “AI-style” client capable of interpreting natural language and calling MCP tools.
 
-* Java 17
-* Maven
-* Python 3.9+ (for the NLP client)
+Rather than relying on a paid hosted AI platform (which could introduce costs, lock-in, and external dependencies), Iteration 2 provides a local Python-based NL interpreter:
 
-### Start the service (default: live Mastodon timeline mode)
+* implemented in pure Python, without external AI APIs
+* compatible with Linux, macOS, and Windows
+* converts natural language into CLI arguments and HTTP requests
+* drives all major MCP features (authentication, search, analytics, scheduling, audit)
+
+This keeps the solution free, portable, and easy to evaluate.
+
+---
+
+# **2. How to Build and Run**
+
+---
+
+## **2.1 Prerequisites**
+
+* Java 21
+* Maven 3.9+
+* Python 3.8+ (for the NL client)
+* `curl` and `jq` (recommended)
+
+**Project layout (relevant parts):**
+
+```
+FinalProjectTeam/
+├─ src/main/java/...          # Spring Boot MCP server
+├─ src/test/java/...          # Unit + integration tests
+├─ src/main/resources/
+│   ├─ application.properties
+│   └─ application-mastodon.properties
+├─ Client/
+│   └─ mcp_cli.py             # Python NL + CLI client
+└─ pom.xml
+```
+
+---
+
+## **2.2 Environment variables (local)**
+
+For local development in timeline mode:
+
+```
+export APP_KMS_KEY=dev-local-key
+export APP_SEARCH_SOURCE=timeline
+```
+
+In the submitted version, Mastodon client credentials are already wired into `TwitterOAuthClient` for convenience, making additional OAuth variables optional for local runs.
+
+---
+
+## **2.3 Run locally – timeline (Mastodon) mode**
+
+From the project root:
 
 ```
 mvn -q spring-boot:run
 ```
 
-### Run using DB mode (Iteration 1 style)
+By default, the server:
 
-```
-mvn -q spring-boot:run   -Dspring-boot.run.profiles=devdb   -Dspring-boot.run.arguments="--app.fakeTwitter=false --app.search.source=db"
-```
-
-### Run the NLP Client
-
-```
-cd Client
-export MCP_BASE_URL='http://localhost:8080'
-python3 mcp_cli.py nl "show sentiment analysis"
-```
+* listens on `http://localhost:8080`
+* uses the Mastodon timeline as the search source
+* uses file-based H2 for tokens, audit, and scheduling
 
 ---
 
-## **4. Cloud Deployment (Required Submission URL)**
-
-The service is deployed on Railway:
-
-[https://mcp-iteration2-production.up.railway.app](https://mcp-iteration2-production.up.railway.app)
-
-This URL was submitted as the assignment deliverable.
-
-The deployment includes:
-
-* Real OAuth callback
-* Background scheduler
-* Mastodon integration
-* All required endpoints
-
-No secrets are stored in the repository; Railway environment variables provide OAuth credentials.
-
----
-
-## **5. End-to-End Client Testing (Required by Spec)**
-
-End-to-end tests are run using our natural-language (NL) client, which exercises the full pipeline including OAuth, posting, search, analytics, audit, and MCP tools.
-
-### Set API base URL:
-
-```
-cd Client
-export MCP_BASE_URL='https://mcp-iteration2-production.up.railway.app'
-```
-
-### ✔ Login
-
-```
-python3 mcp_cli.py nl "log in account test-account"
-```
-
-### ✔ Search
-
-```
-python3 mcp_cli.py nl "search for a text saying hello"
-```
-
-### ✔ Schedule a post
-
-```
-python3 mcp_cli.py nl "schedule a tweet in 2 minutes saying good morning"
-```
-
-### ✔ Analytics
-
-```
-python3 mcp_cli.py nl "show analytics summary"
-python3 mcp_cli.py nl "show sentiment analysis"
-python3 mcp_cli.py nl "what are the best hours to post?"
-```
-
-### ✔ Audit
-
-```
-python3 mcp_cli.py nl "show recent audit entries"
-```
-
-### ✔ MCP tools
-
-```
-curl -s "$BASE/mcp" \
- -H "Content-Type: application/json" \
- -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | jq
-```
-
-A checklist of test steps is provided so graders can re-run the same tests.
-
----
-
-## **6. Static Analysis (Required by Spec)**
-
-Static analysis tools used:
-
-* Checkstyle
-* PMD
-* SpotBugs
-
-All tools run automatically as part of CI (mvn verify).
-
-### Initial Results
-
-* PMD: 1 violation (UselessParentheses)
-* Checkstyle: several formatting & Javadoc issues
-* SpotBugs: no high-priority issues
-
-### Final Results (After Fixes)
-
-* PMD: 0 violations
-* Checkstyle: 0 violations
-* SpotBugs: 0 high/medium issues
-
-### Report Locations (Generated automatically by Maven):
-
-| Tool       | Path                          |
-| ---------- | ----------------------------- |
-| PMD        | target/pmd.xml                |
-| Checkstyle | target/checkstyle-result.xml  |
-| SpotBugs   | target/spotbugsXml.xml        |
-| Tests      | target/surefire-reports/      |
-| Coverage   | target/site/jacoco/index.html |
-
----
-
-## **7. Continuous Integration (Required by Spec)**
-
-CI is implemented using GitHub Actions.
-
-Workflow file:
-`.github/workflows/java-ci.yml`
-
-Triggered on:
-
-* Every push to main
-* Every PR targeting main
-* Iteration-2 feature branch development
-
-The workflow executes:
-
-```
-mvn -B verify
-```
-
-This runs:
-
-* Unit tests
-* Integration tests
-* Static analysis (Checkstyle, PMD, SpotBugs)
-* Code coverage (JaCoCo)
-
-All CI runs are visible in the repository’s Actions tab.
-
----
-
-## **8. Testing Summary (Required)**
-
-### Unit Tests
-
-Coverage measured with JaCoCo:
-
-**81% branch coverage** (above the typical requirement)
-
-### Integration Tests cover:
-
-* OAuth start/callback flow
-* Searching (keyword, OR, hashtag)
-* Scheduling pipeline end-to-end
-* Posting to Mastodon (mocked + real)
-* Analytics
-* Audit logging
-
-All tests pass in CI.
-
----
-
-## **9. Bug Finding (Required by Spec)**
-
-Static analysis tools identified:
-
-* Parentheses misuse (PMD)
-* Missing Javadoc / long lines (Checkstyle)
-
-All bugs have been fixed.
-
-SpotBugs did not report any high-priority defects.
-
----
-
-## **10. DB Search Mode (From Iteration 1) Still Supported**
-
-The service supports a local H2 database mode, useful for testing without Mastodon.
-
-### Run DB mode:
+## **2.4 Run locally – DB mode (Iteration-1 style)**
 
 ```
 mvn -q spring-boot:run \
  -Dspring-boot.run.arguments="--app.search.source=db"
 ```
 
-### Example commands:
+This uses the `TWEETS` table in the embedded H2 database, seeded via Flyway migrations.
+
+---
+
+## **2.5 Python NL client configuration**
+
+From the `Client/` directory:
+
+```
+cd Client
+export MCP_BASE_URL='http://localhost:8080'
+```
+
+For the deployed cloud instance:
+
+```
+export MCP_BASE_URL='https://mcp-iteration2-production.up.railway.app'
+```
+
+Run commands such as:
+
+```
+python3 mcp_cli.py nl "show sentiment analysis for account test-account"
+```
+
+---
+
+# **3. Cloud Deployment and Tagging (Iteration 2)**
+
+---
+
+## **3.1 Cloud deployment (Railway)**
+
+The backend is deployed to:
+
+```
+https://mcp-iteration2-production.up.railway.app
+```
+
+This instance runs:
+
+* the same Spring Boot MCP server
+* persistent H2 file DB in the container
+* `app.search.source=timeline`
+* the configured Mastodon OAuth client
+* `/auth/callback` exposed at:
+
+```
+https://mcp-iteration2-production.up.railway.app/auth/callback
+```
+
+### **How the grader can use the cloud deployment**
+
+Inspect metadata:
+
+```
+https://mcp-iteration2-production.up.railway.app/auth/meta
+```
+
+Start OAuth login:
+
+```
+curl -s "https://mcp-iteration2-production.up.railway.app/auth/start?accountId=test-account" | jq
+```
+
+Opening the returned `authorize_url` in a browser authenticates with Mastodon.
+After approval, the token is stored in the Railway DB, enabling all endpoints to operate on live data.
+
+To point the NL client at the cloud instance:
+
+```
+cd Client
+export MCP_BASE_URL='https://mcp-iteration2-production.up.railway.app'
+```
+
+Example:
+
+```
+python3 mcp_cli.py nl "show sentiment analysis"
+python3 mcp_cli.py nl "schedule a tweet in 2 minutes saying good morning"
+```
+
+---
+
+## **3.2 Git tag for Iteration 2**
+
+Tag:
+
+```
+iteration-2-mcp
+```
+
+The tagged commit:
+
+* contains all Iteration-2 features
+* passes `mvn verify`
+* includes documentation of the Railway deployment URL
+
+---
+
+# **4. API Overview**
+
+Base URLs:
+
+```
+Local: http://localhost:8080
+Cloud: https://mcp-iteration2-production.up.railway.app
+```
+
+Logical test account:
+
+```
+test-account
+```
+
+---
+
+## **4.1 Authentication**
+
+### **GET /auth/meta**
+
+Returns provider metadata.
+
+### **GET /auth/start?accountId={id}**
+
+Starts OAuth; returns the authorize URL, state value, and callback.
+
+### **GET /auth/callback?code=...&state=...**
+
+Processes the OAuth return value and stores the encrypted token.
+
+### **GET /auth/status?accountId={id}**
+
+Returns token state, provider, scopes, expiry, and health.
+
+### **DELETE /auth/token?accountId={id}**
+
+Deletes the stored token.
+
+---
+
+## **4.2 Search and Hashtags**
+
+Search operates either on:
+
+* the Mastodon home timeline (default), or
+* the H2 database (db mode)
+
+### **GET /search?accountId={id}&q={query}&limit={n}&offset={k}**
+
+Features:
+
+* keyword search
+* boolean OR
+* simple quoted phrases
+* pagination
+* ranking by match score and recency
+
+Examples:
+
+```
+curl -s "$BASE/search?accountId=$ACCOUNT&q=hello&limit=5" | jq
+curl -s "$BASE/search?accountId=$ACCOUNT&q=hello%20OR%20second&limit=5" | jq
+```
+
+### **GET /search/hashtags?accountId={id}&q=#tag&limit={n}**
+
+Exact hashtag match (case-insensitive).
+
+---
+
+## **4.3 Analytics**
+
+Analytics run over the timeline or DB, depending on configuration.
+
+### **GET /analytics/sentiment?accountId={id}**
+
+Returns sentiment counts and average score.
+
+### **GET /analytics/best-hours?accountId={id}**
+
+Returns a mapping of hour → number of posts.
+
+### **GET /analytics/top-hashtags?accountId={id}&n={k}**
+
+Returns the top-k hashtags.
+
+### **GET /analytics/summary?accountId={id}**
+
+Includes totals, top hashtags, and the best posting hour.
+
+---
+
+## **4.4 Scheduling**
+
+### **POST /tools/schedule_tweet**
+
+Example body:
+
+```
+{
+  "tool": "schedule_tweet",
+  "params": {
+    "accountId": "test-account",
+    "text": "Hello from Railway!",
+    "time": "2025-12-03T07:56:14Z"
+  }
+}
+```
+
+The job is stored and later executed by the background scheduler.
+
+The NL client can schedule posts as well:
+
+```
+python3 mcp_cli.py nl "schedule a tweet in 2 minutes saying good morning"
+```
+
+---
+
+## **4.5 Audit**
+
+### **GET /audit/recent?limit={n}**
+
+Returns recent audit rows.
+
+### **GET /audit/summary?hours={h}**
+
+Aggregated statistics per tool.
+
+---
+
+## **4.6 MCP / JSON-RPC**
+
+### **POST /mcp**
+
+Implements JSON-RPC with:
+
+* `tools/list`
+* `tools/call`
+
+List tools:
+
+```
+curl -s "$BASE/mcp" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | jq
+```
+
+Tools include:
+
+* set_token
+* get_token
+* list_tokens
+* search_tweets
+* check_quota_status
+* echo_test
+
+Errors follow the JSON-RPC specification.
+
+---
+
+# **5. Natural-Language Client**
+
+Location:
+
+```
+Client/mcp_cli.py
+```
+
+---
+
+## **5.1 Modes**
+
+* direct subcommands
+* `nl` mode for natural-language interpretation
+
+---
+
+## **5.2 Configuration**
+
+```
+cd Client
+export MCP_BASE_URL='http://localhost:8080'
+# or:
+export MCP_BASE_URL='https://mcp-iteration2-production.up.railway.app'
+```
+
+---
+
+## **5.3 Example NL commands**
+
+```
+python3 mcp_cli.py nl "log in account test-account"
+python3 mcp_cli.py nl "show sentiment analysis"
+python3 mcp_cli.py nl "show analytics summary"
+python3 mcp_cli.py nl "what are the best hours to post?"
+python3 mcp_cli.py nl "schedule a tweet in 2 minutes saying good morning"
+python3 mcp_cli.py nl "show recent audit entries"
+```
+
+The client prints both:
+
+* the interpreted CLI command
+* the MCP JSON response
+
+The NL interpreter handles intent detection, numeric phrase parsing, and extraction of quoted or contextual text.
+
+---
+
+# **6. Testing and Coverage**
+
+---
+
+## **6.1 Test types**
+
+Unit tests cover:
+
+* search ranking and parsing
+* analytics logic
+* OAuth client behavior
+* MCP tools
+
+Integration tests cover:
+
+* REST controllers
+* OAuth flow components
+* scheduling endpoint shape
+* audit endpoints
+
+---
+
+## **6.2 Equivalence partitions and boundary tests**
+
+Coverage includes edge cases for:
+
+* search queries (single term, multi-term, OR, phrases)
+* offsets and limits
+* hashtags (valid and invalid)
+* analytics (empty vs. non-empty sets)
+* scheduling (valid times, malformed timestamps)
+* OAuth responses and errors
+
+---
+
+## **6.3 Coverage**
+
+Measured with JaCoCo.
+
+Branch coverage:
+
+```
+≈81%
+```
+
+Generated reports:
+
+```
+target/site/jacoco/index.html
+```
+
+Run locally:
+
+```
+mvn -q verify
+```
+
+---
+
+# **7. Static Analysis and CI**
+
+---
+
+## **7.1 CI setup**
+
+GitHub Actions workflow:
+
+```
+.github/workflows/java-ci.yml
+```
+
+Triggers:
+
+* pushes to `main`
+* pull requests to `main`
+* pushes to the Iteration-2 branch
+
+Job runs:
+
+```
+mvn -B verify
+```
+
+Which includes tests, Checkstyle, PMD, SpotBugs, and coverage.
+
+---
+
+## **7.2 Static analysis summary**
+
+Before refactoring:
+
+* PMD: 1 violation
+* Checkstyle: formatting and missing Javadoc
+* SpotBugs: no high-priority issues
+
+After adjustments:
+
+* PMD: 0 violations
+* Checkstyle: 0 violations
+* SpotBugs: 0 high/medium issues
+
+Reports:
+
+```
+target/pmd.xml
+target/checkstyle-result.xml
+target/spotbugsXml.xml
+target/surefire-reports/
+target/site/jacoco/index.html
+```
+
+---
+
+# **8. DB Mode (Iteration-1 Compatibility)**
+
+DB-backed search remains available for:
+
+* predictable, reproducible datasets
+* offline testing
+* environments without Mastodon connectivity
+
+---
+
+## **8.1 Run in DB mode**
+
+```
+mvn -q spring-boot:run \
+ -Dspring-boot.run.arguments="--app.search.source=db"
+```
+
+---
+
+## **8.2 Example DB search commands**
 
 ```
 BASE='http://localhost:8080'
 ACCOUNT='test-account'
+```
 
+**Keyword search:**
+
+```
 curl -s "$BASE/search?accountId=$ACCOUNT&q=hello&limit=10" | jq
+```
+
+**Hashtag search:**
+
+```
 curl -s "$BASE/search/hashtags?accountId=$ACCOUNT&q=%23db&limit=10" | jq
+```
+
+**Broad search example:**
+
+```
 curl -s "$BASE/search?accountId=$ACCOUNT&q=a&limit=20" | jq
 ```
 
-H2 was chosen so graders do not need PostgreSQL installed.
+If no match exists, responses simply return:
+
+```
+[]
+```
+
+The embedded H2 database avoids the need for any external database.
+
+The cloud instance defaults to timeline mode, but DB mode remains useful for deterministic local tests.
+
+
 
 ---
 
-## **11. Deployment & Tagging (Required by Spec)**
-
-The final version of Iteration 2 is tagged:
-
-`iteration-2-final`
-
-Cloud deployment:
-
-[https://mcp-iteration2-production.up.railway.app](https://mcp-iteration2-production.up.railway.app)
-
-This is the URL submitted for grading.
-
-
+If you would like, we can format this as a polished PDF, a GitHub README, or a slide deck.
