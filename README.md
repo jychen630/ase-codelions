@@ -469,6 +469,10 @@ Coverage includes edge cases for:
 * scheduling (valid times, malformed timestamps)
 * OAuth responses and errors
 
+A detailed description of the equivalence partitions and boundary cases used
+for the test suite is in:
+
+- [`docs/equivalence-partitions.md`]
 ---
 
 ## **6.3 Coverage**
