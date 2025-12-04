@@ -486,7 +486,10 @@ The following manual tests exercise the client and service together. All tests a
 - Logical account id is test-account.
 
 1. *Login flow (NL client + OAuth)*
-   - Command: python3 Client/mcp_cli.py nl "log in account test-account"
+   - Command:
+     ```
+     python3 Client/mcp_cli.py nl "log in account test-account"
+     ```     
    - Expected: Client prints an authorize_url; opening it in a browser allows Mastodon login; afterwards GET /auth/status shows hasToken=true.
 
 2. *Sentiment analytics via NL*
