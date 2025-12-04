@@ -477,11 +477,44 @@ mvn -q verify
 
 ---
 
-# **7. Static Analysis and CI**
+## 7. End-to-end Client/Service Test Checklist
+
+The following manual tests exercise the client and service together. All tests assume:
+
+- Service is running (locally or on Railway).
+- MCP_BASE_URL is set accordingly.
+- Logical account id is test-account.
+
+1. *Login flow (NL client + OAuth)*
+   - Command: python3 Client/mcp_cli.py nl "log in account test-account"
+   - Expected: Client prints an authorize_url; opening it in a browser allows Mastodon login; afterwards GET /auth/status shows hasToken=true.
+
+2. *Sentiment analytics via NL*
+   - Command: python3 Client/mcp_cli.py nl "show sentiment analysis"
+   - Expected: JSON with totalTweets > 0 and non-trivial sentiment counts.
+
+3. *Analytics summary via NL*
+   - Command: python3 Client/mcp_cli.py nl "show analytics summary"
+   - Expected: JSON with totalTweets, topHashtags (possibly empty), and bestHourUtc.
+
+4. *Best posting hours via NL*
+   - Command: python3 Client/mcp_cli.py nl "what are the best hours to post?"
+   - Expected: Map from hours to counts.
+
+5. *Schedule a post via NL*
+   - Command: python3 Client/mcp_cli.py nl "schedule a tweet in 2 minutes saying good morning"
+   - Expected: JSON with "status": "scheduled" and a future scheduled_for timestamp. Shortly after that time, the post appears on Mastodon.
+
+6. *Audit via NL*
+   - Command: python3 Client/mcp_cli.py nl "show recent audit entries"
+   - Expected: List of recent tool calls (may be empty initially, then fill as tests run)
+---
+
+# **8. Static Analysis and CI**
 
 ---
 
-## **7.1 CI setup**
+## **8.1 CI setup**
 
 GitHub Actions workflow:
 
@@ -505,7 +538,7 @@ Which includes tests, Checkstyle, PMD, SpotBugs, and coverage.
 
 ---
 
-## **7.2 Static analysis summary**
+## **8.2 Static analysis summary**
 
 Before refactoring:
 
@@ -531,7 +564,7 @@ target/site/jacoco/index.html
 
 ---
 
-# **8. DB Mode (Iteration-1 Compatibility)**
+# **9. DB Mode (Iteration-1 Compatibility)**
 
 DB-backed search remains available for:
 
@@ -541,7 +574,7 @@ DB-backed search remains available for:
 
 ---
 
-## **8.1 Run in DB mode**
+## **9.1 Run in DB mode**
 
 ```
 mvn -q spring-boot:run \
@@ -550,7 +583,7 @@ mvn -q spring-boot:run \
 
 ---
 
-## **8.2 Example DB search commands**
+## **9.2 Example DB search commands**
 
 ```
 BASE='http://localhost:8080'
