@@ -418,6 +418,24 @@ The NL interpreter handles intent detection, numeric phrase parsing, and extract
 
 ---
 
+### 5.4 Third-party client development
+
+A third-party developer can build their own client for this service using either REST or MCP:
+
+- *REST option:*
+  - Call /auth/start?accountId=... to obtain an OAuth URL, send the user to Mastodon to authorize, then rely on /auth/callback storing the token.
+  - Call /auth/status, /search, /search/hashtags, /analytics/*, /tools/schedule_tweet, and /audit/* using plain HTTP+JSON.
+  - Distinguish multiple client instances by using different logical accountId values.
+
+- *MCP / JSON-RPC option:*
+  - POST to /mcp with {"jsonrpc":"2.0","method":"tools/list"} to discover available tools.
+  - POST to /mcp with {"method":"tools/call", ...} to invoke tools such as search_tweets, check_quota_status, set_token, etc.
+  - Manage any UI or conversation layer on the client side; the server only exposes tools.
+
+Any language that can do HTTP and JSON (Python, JavaScript, Java, etc.) can implement such a client. Our own Client/mcp_cli.py is one concrete example.
+
+---
+
 # **6. Testing and Coverage**
 
 ---
@@ -477,7 +495,31 @@ mvn -q verify
 
 ---
 
-## 7. End-to-end Client/Service Test Checklist
+## **6.4 Integration tests overview**
+
+Integration tests are located under:
+
+- `src/test/java/.../integration`
+- and selected controller-focused test classes
+
+Each test class is designed to cover a specific integration concern, including:
+
+- search with DB/H2 integration (search controller + repository)  
+- OAuth client behavior and token storage (auth controller + persistence)  
+- analytics endpoints operating over persisted or cached posts  
+- scheduling endpoints writing scheduled jobs into the database  
+- audit endpoints reading and aggregating audit records  
+
+Each integration test includes code comments describing:
+
+- which classes are involved  
+- what resources are exercised (database, HTTP client, etc.)  
+- how the test scenario reflects real application behavior  
+
+
+---
+
+# 7. End-to-end Client/Service Test Checklist
 
 The following manual tests exercise the client and service together. All tests assume:
 
