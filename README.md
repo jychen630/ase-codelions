@@ -493,23 +493,38 @@ The following manual tests exercise the client and service together. All tests a
    - Expected: Client prints an authorize_url; opening it in a browser allows Mastodon login; afterwards GET /auth/status shows hasToken=true.
 
 2. *Sentiment analytics via NL*
-   - Command: python3 Client/mcp_cli.py nl "show sentiment analysis"
+   - Command:
+   ```
+   python3 Client/mcp_cli.py nl "show sentiment analysis"
+   ```
    - Expected: JSON with totalTweets > 0 and non-trivial sentiment counts.
 
 3. *Analytics summary via NL*
-   - Command: python3 Client/mcp_cli.py nl "show analytics summary"
+   - Command:
+   ```
+   python3 Client/mcp_cli.py nl "show analytics summary"
+   ```
    - Expected: JSON with totalTweets, topHashtags (possibly empty), and bestHourUtc.
 
 4. *Best posting hours via NL*
-   - Command: python3 Client/mcp_cli.py nl "what are the best hours to post?"
+   - Command:
+   ```
+   python3 Client/mcp_cli.py nl "what are the best hours to post?"
+   ```
    - Expected: Map from hours to counts.
 
 5. *Schedule a post via NL*
-   - Command: python3 Client/mcp_cli.py nl "schedule a tweet in 2 minutes saying good morning"
+   - Command:
+   ```
+   python3 Client/mcp_cli.py nl "schedule a tweet in 2 minutes saying good morning"
+   ```
    - Expected: JSON with "status": "scheduled" and a future scheduled_for timestamp. Shortly after that time, the post appears on Mastodon.
 
 6. *Audit via NL*
-   - Command: python3 Client/mcp_cli.py nl "show recent audit entries"
+   - Command:
+   ```
+   python3 Client/mcp_cli.py nl "show recent audit entries"
+   ```
    - Expected: List of recent tool calls (may be empty initially, then fill as tests run)
 ---
 
