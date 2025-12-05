@@ -38,6 +38,27 @@ public interface TwitterClient {
       throws TwitterException;
 
   /**
+   * Delete a status/post by ID.
+   *
+   * @param accountId logical account id
+   * @param statusId Mastodon status ID
+   * @throws TwitterException when deletion fails
+   */
+  void deleteStatus(String accountId, String statusId) throws TwitterException;
+
+  /**
+   * Edit a status (Mastodon supports editing within 30 minutes).
+   *
+   * @param accountId logical account id
+   * @param statusId Mastodon status ID
+   * @param newText updated content
+   * @return updated status ID
+   * @throws TwitterException when edit fails
+   */
+  String editStatus(String accountId, String statusId, String newText)
+      throws TwitterException;
+
+  /**
    * Checked exception to model client failures in a testable way.
    */
   class TwitterException extends Exception {

@@ -160,8 +160,9 @@
             <configuration>
               <!-- If you have a custom ruleset in the repo, point to it:
                    <configLocation>checkstyle.xml</configLocation>
-                   Otherwise it will use the plugin’s default (Sun/Google style).
+                   Otherwise it will use the plugin's default (Sun/Google style).
               -->
+              <suppressionsLocation>checkstyle-suppressions.xml</suppressionsLocation>
               <consoleOutput>true</consoleOutput>
               <failsOnError>true</failsOnError>
               <violationSeverity>warning</violationSeverity>

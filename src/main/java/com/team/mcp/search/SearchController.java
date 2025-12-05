@@ -30,13 +30,19 @@ public final class SearchController {
    *
    * <p>Examples:</p>
    * <pre>
-   *   /search?accountId=acctA&q="seed tweet" OR hello&offset=0&limit=10
+   *   /search?accountId=acctA&amp;q="seed tweet" OR hello&amp;offset=0
+   *   /search?accountId=acctA&amp;q=hello&amp;from=2025-01-01T00:00:00Z
+   *   /search?accountId=acctA&amp;q=hello&amp;author=username&amp;hasMedia=true
    * </pre>
    *
    * @param accountId logical account id
    * @param q raw query string (supports phrases in quotes and {@code OR})
    * @param offset number of results to skip (for pagination)
    * @param limit maximum number of results to return
+   * @param from optional start date filter (ISO-8601 format)
+   * @param to optional end date filter (ISO-8601 format)
+   * @param author optional author username filter
+   * @param hasMedia optional media filter (true = only tweets with media)
    * @return HTTP 200 with a list of matching {@link Tweet} DTOs
    */
   @GetMapping("/search")
@@ -44,9 +50,14 @@ public final class SearchController {
       @RequestParam("accountId") final String accountId,
       @RequestParam("q") final String q,
       @RequestParam(value = "offset", defaultValue = "0") final int offset,
-      @RequestParam(value = "limit", defaultValue = "20") final int limit) {
-
-    final List<Tweet> out = svc.search(accountId, q, offset, limit);
+      @RequestParam(value = "limit", defaultValue = "20") final int limit,
+      @RequestParam(value = "from", required = false) final String from,
+      @RequestParam(value = "to", required = false) final String to,
+      @RequestParam(value = "author", required = false) final String author,
+      @RequestParam(value = "hasMedia", required = false)
+      final Boolean hasMedia) {
+    final SearchFilters filters = new SearchFilters(from, to, author, hasMedia);
+    final List<Tweet> out = svc.search(accountId, q, offset, limit, filters);
     return ResponseEntity.ok(out);
   }
 

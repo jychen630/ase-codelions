@@ -41,8 +41,11 @@ public final class FakeTwitterClient implements TwitterClient {
       final String id = "seed-" + i;
       final String user = "user" + (i % USERS_MOD);
       final String text = "Hello from seed tweet #" + i;
-      // Order matches record Tweet(id, user, text, createdAt).
-      this.seed.add(new Tweet(id, user, text, base.plusSeconds(i)));
+      // Order matches record Tweet(id, user, text, createdAt, hasMedia).
+      // Every 10th tweet has media for testing
+      final int mediaInterval = 10;
+      final boolean hasMedia = i % mediaInterval == 0;
+      this.seed.add(new Tweet(id, user, text, base.plusSeconds(i), hasMedia));
     }
   }
 
@@ -71,5 +74,32 @@ public final class FakeTwitterClient implements TwitterClient {
   public String postTweet(final String accountId, final String text) {
     final long n = idSeq.incrementAndGet();
     return "tw-" + n;
+  }
+
+  /**
+   * Pretends to delete a status (no-op in fake implementation).
+   *
+   * @param accountId logical account id (ignored)
+   * @param statusId status id (ignored)
+   */
+  @Override
+  public void deleteStatus(final String accountId, final String statusId) {
+    // No-op for fake client
+  }
+
+  /**
+   * Pretends to edit a status and returns the same status ID.
+   *
+   * @param accountId logical account id (ignored)
+   * @param statusId status id to return
+   * @param newText new content (ignored)
+   * @return the same statusId
+   */
+  @Override
+  public String editStatus(
+      final String accountId,
+      final String statusId,
+      final String newText) {
+    return statusId;
   }
 }

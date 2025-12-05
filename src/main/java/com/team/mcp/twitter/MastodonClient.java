@@ -27,6 +27,8 @@ import org.springframework.web.client.RestTemplate;
  * <ul>
  *   <li>GET {@code /api/v1/timelines/home}</li>
  *   <li>POST {@code /api/v1/statuses}</li>
+ *   <li>DELETE {@code /api/v1/statuses/{id}}</li>
+ *   <li>PUT {@code /api/v1/statuses/{id}}</li>
  * </ul>
  */
 public final class MastodonClient implements TwitterClient {
@@ -153,14 +155,18 @@ public final class MastodonClient implements TwitterClient {
             account == null ? null : account.get("acct"));
         final String contentHtml = valueAsString(status.get("content"));
         final String createdAtStr = valueAsString(status.get("created_at"));
+        final List<Map<String, Object>> mediaAttachments =
+            valueAsList(status.get("media_attachments"));
 
         final String text = stripHtml(contentHtml);
         final Instant createdAt =
             createdAtStr.isEmpty()
                 ? Instant.now()
                 : Instant.parse(createdAtStr);
+        final boolean hasMedia = mediaAttachments != null
+            && !mediaAttachments.isEmpty();
 
-        result.add(new Tweet(id, user, text, createdAt));
+        result.add(new Tweet(id, user, text, createdAt, hasMedia));
       }
 
       return result;
@@ -181,6 +187,14 @@ public final class MastodonClient implements TwitterClient {
     return null;
   }
 
+  @SuppressWarnings("unchecked")
+  private static List<Map<String, Object>> valueAsList(final Object o) {
+    if (o instanceof List<?> list) {
+      return (List<Map<String, Object>>) list;
+    }
+    return null;
+  }
+
   /**
    * Very small HTML stripper for Mastodon {@code content} field.
    * Not perfect, but good enough for this project.
@@ -193,6 +207,77 @@ public final class MastodonClient implements TwitterClient {
       return "";
     }
     return html.replaceAll("<[^>]+>", "");
+  }
+
+  @Override
+  public void deleteStatus(final String accountId, final String statusId)
+      throws TwitterException {
+    final String token = requireToken(accountId);
+    final String url = baseUrl + "/api/v1/statuses/" + statusId;
+
+    final HttpHeaders headers = new HttpHeaders();
+    headers.setBearerAuth(token);
+
+    final HttpEntity<Void> req = new HttpEntity<>(headers);
+
+    try {
+      final ResponseEntity<Void> resp = http.exchange(
+          url,
+          HttpMethod.DELETE,
+          req,
+          Void.class);
+
+      if (!resp.getStatusCode().is2xxSuccessful()) {
+        throw new TwitterException(
+            "Non-2xx from Mastodon DELETE /statuses/" + statusId + ": "
+                + resp.getStatusCodeValue());
+      }
+    } catch (RestClientException ex) {
+      throw new TwitterException("Error deleting status from Mastodon", ex);
+    }
+  }
+
+  @Override
+  public String editStatus(
+      final String accountId,
+      final String statusId,
+      final String newText)
+      throws TwitterException {
+    final String token = requireToken(accountId);
+    final String url = baseUrl + "/api/v1/statuses/" + statusId;
+
+    final HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+    headers.setBearerAuth(token);
+
+    final MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+    form.add("status", newText);
+
+    final HttpEntity<MultiValueMap<String, String>> req =
+        new HttpEntity<>(form, headers);
+
+    try {
+      final ResponseEntity<Map<String, Object>> resp = http.exchange(
+          url,
+          HttpMethod.PUT,
+          req,
+          new ParameterizedTypeReference<Map<String, Object>>() { });
+
+      if (!resp.getStatusCode().is2xxSuccessful() || resp.getBody() == null) {
+        throw new TwitterException(
+            "Non-2xx from Mastodon PUT /statuses/" + statusId + ": "
+                + resp.getStatusCodeValue());
+      }
+
+      final Object idObj = resp.getBody().get("id");
+      if (idObj == null) {
+        throw new TwitterException(
+            "Mastodon PUT /statuses/" + statusId + " did not return id");
+      }
+      return idObj.toString();
+    } catch (RestClientException ex) {
+      throw new TwitterException("Error editing status on Mastodon", ex);
+    }
   }
 }
 

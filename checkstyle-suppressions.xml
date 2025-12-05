@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+    "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+    "https://checkstyle.org/dtds/suppression_1_2.dtd">
+<suppressions>
+  <!-- Suppress ParameterNumber for search methods with filters -->
+  <suppress checks="ParameterNumber"
+            files="SearchService\.java"
+            lines="118-150"/>
+  <suppress checks="ParameterNumber"
+            files="SearchController\.java"
+            lines="49-57"/>
+</suppressions>
+

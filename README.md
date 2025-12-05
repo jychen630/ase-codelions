@@ -30,7 +30,7 @@ For these reasons, Iteration 2 uses Mastodon (mastodon.social) while retaining t
 
 ---
 
-## **1.2 Why a custom NL client instead of a hosted AI**
+## **1.2 Why a custom natural language (nl) client instead of a hosted AI**
 
 The specification expects an “AI-style” client capable of interpreting natural language and calling MCP tools.
 
@@ -187,10 +187,41 @@ Example:
 
 ```
 python3 mcp_cli.py nl "show sentiment analysis"
-python3 mcp_cli.py nl "schedule a tweet in 2 minutes saying good morning"
+ Interpreted as: ['analytics-sentiment', '--account', 'test-account']
+{
+  "totalTweets": 0,
+  "positive": 0,
+  "negative": 0,
+  "neutral": 0,
+  "averageScore": 0.0
+}
+// I didnt post any before running this cmd!
+
+python3 mcp_cli.py nl "schedule a tweet in 10 seconds saying good morning"
+ Interpreted as: ['schedule-tweet', '--account', 'test-account', '--text', 'good morning', '--in-seconds', '10']
+{
+  "id": "4",
+  "text": "good morning",
+  "scheduled_for": "2025-12-05T01:09:14Z",
+  "status": "scheduled"
+}
+// Nice!
+
+python3 mcp_cli.py nl "show sentiment analysis"
+ Interpreted as: ['analytics-sentiment', '--account', 'test-account']
+{
+  "totalTweets": 1,
+  "positive": 1,
+  "negative": 0,
+  "neutral": 0,
+  "averageScore": 1.5
+}
+// Now that I have 1 post automatically published by our client.
+
 ```
 
 ---
+
 
 ## **3.2 Git tag for Iteration 2**
 
@@ -256,7 +287,7 @@ Search operates either on:
 * the Mastodon home timeline (default), or
 * the H2 database (db mode)
 
-### **GET /search?accountId={id}&q={query}&limit={n}&offset={k}**
+### **GET /search?accountId={id}&q={query}&limit={n}&offset={k}&from={date}&to={date}&author={user}&hasMedia={bool}**
 
 Features:
 
@@ -265,12 +296,30 @@ Features:
 * simple quoted phrases
 * pagination
 * ranking by match score and recency
+* **Advanced filters (NEW):**
+  * `from` - start date filter (ISO-8601 format)
+  * `to` - end date filter (ISO-8601 format)
+  * `author` - filter by username
+  * `hasMedia` - filter tweets with media attachments (true/false)
 
 Examples:
 
 ```
+# Basic search
 curl -s "$BASE/search?accountId=$ACCOUNT&q=hello&limit=5" | jq
 curl -s "$BASE/search?accountId=$ACCOUNT&q=hello%20OR%20second&limit=5" | jq
+
+# Advanced search with date range
+curl -s "$BASE/search?accountId=$ACCOUNT&q=hello&from=2025-01-01T00:00:00Z&to=2025-12-31T23:59:59Z" | jq
+
+# Search by author
+curl -s "$BASE/search?accountId=$ACCOUNT&q=hello&author=username" | jq
+
+# Search tweets with media only
+curl -s "$BASE/search?accountId=$ACCOUNT&q=hello&hasMedia=true" | jq
+
+# Combined filters
+curl -s "$BASE/search?accountId=$ACCOUNT&q=hello&from=2025-01-01T00:00:00Z&author=username&hasMedia=true" | jq
 ```
 
 ### **GET /search/hashtags?accountId={id}&q=#tag&limit={n}**
@@ -301,7 +350,54 @@ Includes totals, top hashtags, and the best posting hour.
 
 ---
 
-## **4.4 Scheduling**
+## **4.4 Post Management (NEW)**
+
+### **DELETE /posts/{statusId}?accountId={id}**
+
+Deletes a post/status by ID.
+
+**REST API Example:**
+```
+curl -X DELETE "$BASE/posts/123456?accountId=$ACCOUNT" | jq
+```
+
+**CLI Example:**
+```
+python3 mcp_cli.py delete-post --account test-account --status-id 123456
+```
+
+**Natural Language Example:**
+```
+python3 mcp_cli.py nl "delete post 123456 for account test-account"
+python3 mcp_cli.py nl "remove tweet 123456"
+```
+
+### **PUT /posts/{statusId}?accountId={id}**
+
+Edits a post/status by ID. Mastodon allows editing within 30 minutes of posting.
+
+**REST API Example:**
+```
+curl -X PUT "$BASE/posts/123456?accountId=$ACCOUNT" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Updated content"}' | jq
+```
+
+**CLI Example:**
+```
+python3 mcp_cli.py edit-post --account test-account --status-id 123456 --text "Updated content"
+```
+
+**Natural Language Example:**
+```
+python3 mcp_cli.py nl "edit post 123456 saying hello world"
+python3 mcp_cli.py nl "update tweet 123456 to say good morning"
+python3 mcp_cli.py nl "change post 123456 with text 'new content'"
+```
+
+---
+
+## **4.5 Scheduling**
 
 ### **POST /tools/schedule_tweet**
 
@@ -328,7 +424,7 @@ python3 mcp_cli.py nl "schedule a tweet in 2 minutes saying good morning"
 
 ---
 
-## **4.5 Audit**
+## **4.6 Audit**
 
 ### **GET /audit/recent?limit={n}**
 
@@ -340,7 +436,7 @@ Aggregated statistics per tool.
 
 ---
 
-## **4.6 MCP / JSON-RPC**
+## **4.7 MCP / JSON-RPC**
 
 ### **POST /mcp**
 
@@ -407,6 +503,19 @@ python3 mcp_cli.py nl "show analytics summary"
 python3 mcp_cli.py nl "what are the best hours to post?"
 python3 mcp_cli.py nl "schedule a tweet in 2 minutes saying good morning"
 python3 mcp_cli.py nl "show recent audit entries"
+python3 mcp_cli.py nl "search tweets for hello"
+python3 mcp_cli.py nl "delete post 123456"
+python3 mcp_cli.py nl "edit post 123456 saying hello world"
+```
+
+**Note:** Advanced search filters (date range, author, media) are currently available via REST API only. Use direct CLI commands or curl for these features:
+
+```
+# Direct CLI with filters (if supported)
+python3 mcp_cli.py search --account test-account --query hello --limit 10
+
+# Or use curl for advanced filters
+curl -s "$BASE/search?accountId=test-account&q=hello&from=2025-01-01T00:00:00Z&hasMedia=true" | jq
 ```
 
 The client prints both:

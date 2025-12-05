@@ -96,6 +96,21 @@ def cmd_hashtags(args: argparse.Namespace) -> None:
   pretty_print(r.json())
 
 
+# Post management commands
+
+def cmd_delete_post(args: argparse.Namespace) -> None:
+  r = requests.delete(url(f"posts/{args.status_id}"), params={"accountId": args.account})
+  r.raise_for_status()
+  pretty_print(r.json())
+
+
+def cmd_edit_post(args: argparse.Namespace) -> None:
+  body = {"text": args.text}
+  r = requests.put(url(f"posts/{args.status_id}"), params={"accountId": args.account}, json=body)
+  r.raise_for_status()
+  pretty_print(r.json())
+
+
 # Analytics commands
 
 def cmd_analytics_top_tags(args: argparse.Namespace) -> None:
@@ -507,6 +522,66 @@ def interpret_nl_command(text: str):
 
     return ["search", "--account", account, "--query", q, "--limit", "10"], None
 
+  # 4. Post management (edit/delete)
+
+  # Delete post
+  if ("delete" in lower or "remove" in lower) and ("post" in lower or "tweet" in lower or "status" in lower):
+    # Try to extract status ID
+    status_id = _first_number(original)
+    if status_id is None:
+      # Try to extract from "post 123" or "tweet 123"
+      m = re.search(r"(?:post|tweet|status)\s+(\d+)", lower)
+      if m:
+        status_id = m.group(1)
+    
+    if status_id is None:
+      error = (
+        "I understood you want to delete a post, but I couldn't find the post ID.\n"
+        'Please say something like: "delete post 123456" or "remove tweet 789".'
+      )
+      return None, error
+
+    return ["delete-post", "--account", account, "--status-id", str(status_id)], None
+
+  # Edit post
+  if ("edit" in lower or "update" in lower or "change" in lower) and ("post" in lower or "tweet" in lower or "status" in lower):
+    # Try to extract status ID
+    status_id = _first_number(original)
+    if status_id is None:
+      m = re.search(r"(?:post|tweet|status)\s+(\d+)", lower)
+      if m:
+        status_id = m.group(1)
+    
+    if status_id is None:
+      error = (
+        "I understood you want to edit a post, but I couldn't find the post ID.\n"
+        'Please say something like: "edit post 123456 saying hello world".'
+      )
+      return None, error
+
+    # Extract new text
+    new_text = None
+    for kw in ["saying", "to", "with text", "with content"]:
+      part = _extract_after_keyword(original, kw)
+      if part:
+        new_text = part.strip()
+        break
+
+    if not new_text:
+      # Try to extract quoted text
+      m = re.search(r'["\']([^"\']+)["\']', original)
+      if m:
+        new_text = m.group(1)
+
+    if not new_text:
+      error = (
+        "I understood you want to edit a post, but I couldn't find the new text.\n"
+        'Please say something like: "edit post 123456 saying hello world".'
+      )
+      return None, error
+
+    return ["edit-post", "--account", account, "--status-id", str(status_id), "--text", new_text], None
+
   # 5. Audit
 
   if "audit" in lower and ("recent" in lower or "last" in lower):
@@ -648,6 +723,18 @@ def build_parser() -> argparse.ArgumentParser:
   p_asum = sub.add_parser("audit-summary", help="Tool-level summary")
   p_asum.add_argument("--hours", type=int, default=24)
   p_asum.set_defaults(func=cmd_audit_summary)
+
+  # Post management
+  p_delete_post = sub.add_parser("delete-post", help="Delete a post by ID")
+  p_delete_post.add_argument("--account", required=True)
+  p_delete_post.add_argument("--status-id", required=True, help="Mastodon status ID")
+  p_delete_post.set_defaults(func=cmd_delete_post)
+
+  p_edit_post = sub.add_parser("edit-post", help="Edit a post by ID")
+  p_edit_post.add_argument("--account", required=True)
+  p_edit_post.add_argument("--status-id", required=True, help="Mastodon status ID")
+  p_edit_post.add_argument("--text", required=True, help="New post content")
+  p_edit_post.set_defaults(func=cmd_edit_post)
 
   # MCP generic
   p_list = sub.add_parser("mcp-list", help="List MCP tools")
