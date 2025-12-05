@@ -67,10 +67,11 @@
       <artifactId>spring-boot-starter-test</artifactId>
       <scope>test</scope>
     </dependency>
-    <!-- Mockito (extra, though spring-boot-starter-test already brings mockito-core) -->
+    <!-- Byte Buddy for Java 25+ compatibility with Mockito -->
     <dependency>
-      <groupId>org.mockito</groupId>
-      <artifactId>mockito-core</artifactId>
+      <groupId>net.bytebuddy</groupId>
+      <artifactId>byte-buddy</artifactId>
+      <version>1.15.4</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -93,6 +94,8 @@
         <version>${maven.surefire.plugin.version}</version>
         <configuration>
           <!-- Defaults pick up **/*Test.java etc.; nothing special needed -->
+          <!-- ${argLine} is set by jacoco:prepare-agent, append our Java 25 fix -->
+          <argLine>${argLine} -Dnet.bytebuddy.experimental=true</argLine>
         </configuration>
       </plugin>
 
@@ -101,6 +104,18 @@
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
         <version>${jacoco.plugin.version}</version>
+        <configuration>
+          <excludes>
+            <exclude>**/java/**</exclude>
+            <exclude>**/javax/**</exclude>
+            <exclude>**/sun/**</exclude>
+            <exclude>**/com/sun/**</exclude>
+            <exclude>**/jdk/**</exclude>
+            <exclude>**/org/junit/**</exclude>
+            <exclude>**/org/mockito/**</exclude>
+            <exclude>**/org/springframework/test/**</exclude>
+          </excludes>
+        </configuration>
         <executions>
           <execution>
             <goals>

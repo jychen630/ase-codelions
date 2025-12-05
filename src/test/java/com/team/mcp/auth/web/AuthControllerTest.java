@@ -64,10 +64,76 @@ class AuthControllerTest {
 
   @Test
   void callback_invalidState_returns400() {
-    var resp = controller.callback("no-such-state", "any-code");
+    // Use a non-existent state instead of null to avoid NPE in Map.remove()
+    var resp = controller.callback("non-existent-state", "any-code");
     assertEquals(400, resp.getStatusCode().value());
-    assertEquals("error", resp.getBody().get("status"));
-    assertEquals("invalid or expired state", resp.getBody().get("message"));
+    Map<String, Object> body = resp.getBody();
+    assertNotNull(body);
+    assertEquals("error", body.get("status"));
+    assertEquals("invalid or expired state", body.get("message"));
     verifyNoInteractions(tokenStore);
+  }
+
+
+  @Test
+  void start_differentAccountIds_createsDifferentStates() {
+    when(oauth.buildAuthorizeUrl(anyString())).thenReturn("http://auth/demo");
+    
+    var resp1 = controller.start("acct1");
+    var resp2 = controller.start("acct2");
+    
+    Map<String, Object> body1 = resp1.getBody();
+    Map<String, Object> body2 = resp2.getBody();
+    assertNotNull(body1);
+    assertNotNull(body2);
+    
+    String state1 = (String) body1.get("state");
+    String state2 = (String) body2.get("state");
+    
+    assertNotEquals(state1, state2);
+    assertNotNull(state1);
+    assertNotNull(state2);
+  }
+
+  @Test
+  void callback_sameStateTwice_secondCallReturns400() {
+    when(oauth.buildAuthorizeUrl(anyString())).thenReturn("http://auth/demo");
+    var start = controller.start("acctA");
+    String state = (String) start.getBody().get("state");
+
+    when(oauth.exchangeCodeForAccessToken("code-1")).thenReturn("tok1");
+    var resp1 = controller.callback(state, "code-1");
+    assertEquals(200, resp1.getStatusCode().value());
+
+    // Second call with same state should fail (state was removed)
+    var resp2 = controller.callback(state, "code-2");
+    assertEquals(400, resp2.getStatusCode().value());
+  }
+
+  @Test
+  void callback_expiredState_returns400() throws Exception {
+    when(oauth.buildAuthorizeUrl(anyString())).thenReturn("http://auth/demo");
+    var start = controller.start("acctA");
+    String state = (String) start.getBody().get("state");
+
+    // Use reflection to access the states map and modify the StateRow
+    java.lang.reflect.Field statesField = AuthController.class.getDeclaredField("states");
+    statesField.setAccessible(true);
+    @SuppressWarnings("unchecked")
+    java.util.Map<String, Object> states = (java.util.Map<String, Object>) statesField.get(controller);
+    
+    // Get the StateRow and modify its creation time to be expired
+    Object stateRow = states.get(state);
+    assertNotNull(stateRow, "StateRow should exist");
+    
+    java.lang.reflect.Field createdField = stateRow.getClass().getDeclaredField("created");
+    createdField.setAccessible(true);
+    createdField.set(stateRow, java.time.Instant.now().minusSeconds(600)); // 10 minutes ago
+
+    var resp = controller.callback(state, "code");
+    assertEquals(400, resp.getStatusCode().value());
+    Map<String, Object> body = resp.getBody();
+    assertNotNull(body);
+    assertEquals("error", body.get("status"));
   }
 }

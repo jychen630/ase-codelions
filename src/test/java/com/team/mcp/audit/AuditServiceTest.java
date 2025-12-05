@@ -47,4 +47,29 @@ class AuditServiceTest {
     assertNotNull(errMsg);
     assertEquals(ToolCallAudit.LEN_ERROR, errMsg.length(), "should be truncated");
   }
+
+  @Test
+  void save_nullErrorMessage_handlesGracefully() {
+    AuditService svc = new AuditService(repo);
+    svc.save("tools/call", "echo", "acct", true, 50L, null, null);
+
+    List<ToolCallAudit> all = repo.findAll();
+    assertEquals(1, all.size());
+    ToolCallAudit row = all.get(0);
+    String errMsg = (String) ReflectionTestUtils.getField(row, "errorMessage");
+    assertNull(errMsg, "null error message should remain null");
+  }
+
+  @Test
+  void save_shortErrorMessage_notTruncated() {
+    AuditService svc = new AuditService(repo);
+    String shortMsg = "short";
+    svc.save("tools/call", "echo", "acct", false, 50L, 400, shortMsg);
+
+    List<ToolCallAudit> all = repo.findAll();
+    assertEquals(1, all.size());
+    ToolCallAudit row = all.get(0);
+    String errMsg = (String) ReflectionTestUtils.getField(row, "errorMessage");
+    assertEquals(shortMsg, errMsg, "short message should not be truncated");
+  }
 }

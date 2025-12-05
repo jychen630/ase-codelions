@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for McpService with real tools and registry.
@@ -114,5 +116,167 @@ class McpServiceTest {
     McpRequest req = new McpRequest("2.0", "tools/call", params, 7);
     McpResponse resp = service.handle(req);
     assertEquals(-32602, resp.error().code());
+  }
+
+  @Test
+  void handle_nullRequest_returnsError() {
+    McpResponse resp = service.handle(null);
+    assertEquals(-32600, resp.error().code());
+    assertEquals("Invalid Request", resp.error().message());
+  }
+
+  @Test
+  void toolsCall_nonStringName_returnsError() {
+    Map<String, Object> params = Map.of(
+        "name", 123,  // not a String
+        "arguments", Map.of()
+    );
+    McpRequest req = new McpRequest("2.0", "tools/call", params, 8);
+    McpResponse resp = service.handle(req);
+    assertEquals(-32602, resp.error().code());
+    assertTrue(resp.error().message().contains("name"));
+  }
+
+  @Test
+  void toolsCall_nonMapArguments_usesEmptyMap() {
+    Map<String, Object> params = Map.of(
+        "name", "echo_test",
+        "arguments", "not-a-map"  // not a Map
+    );
+    McpRequest req = new McpRequest("2.0", "tools/call", params, 9);
+    McpResponse resp = service.handle(req);
+    // Should still work, using empty map for arguments
+    assertTrue(resp.result() != null);
+  }
+
+  @Test
+  void toolsCall_withAccountId_extractsCorrectly() {
+    Map<String, Object> params = Map.of(
+        "name", "echo_test",
+        "arguments", Map.of(
+            "message", "test",
+            "accountId", "test-account"
+        )
+    );
+    McpRequest req = new McpRequest("2.0", "tools/call", params, 10);
+    McpResponse resp = service.handle(req);
+    // Should work fine with accountId in arguments
+    assertTrue(resp.result() != null);
+  }
+
+  @Test
+  void toolsCall_nonStringAccountId_handlesGracefully() {
+    Map<String, Object> params = Map.of(
+        "name", "echo_test",
+        "arguments", Map.of(
+            "message", "test",
+            "accountId", 123  // not a String
+        )
+    );
+    McpRequest req = new McpRequest("2.0", "tools/call", params, 11);
+    McpResponse resp = service.handle(req);
+    // Should still work, accountId extraction returns null for non-String
+    assertTrue(resp.result() != null);
+  }
+
+  @Test
+  void handle_withAuditService_recordsCalls() {
+    com.team.mcp.audit.AuditService audit = mock(com.team.mcp.audit.AuditService.class);
+    InMemoryQuotaService quota = new InMemoryQuotaService();
+    CheckQuotaTool check = new CheckQuotaTool(quota);
+    EchoTool echo = new EchoTool();
+    ToolRegistry registry = new ToolRegistry(echo, check);
+    McpService svcWithAudit = new McpService(registry);
+    svcWithAudit.setAuditService(audit);
+
+    Map<String, Object> params = Map.of(
+        "name", "echo_test",
+        "arguments", Map.of("message", "test")
+    );
+    McpRequest req = new McpRequest("2.0", "tools/call", params, 12);
+    McpResponse resp = svcWithAudit.handle(req);
+
+    assertTrue(resp.result() != null);
+    verify(audit).save(eq("tools/call"), eq("echo_test"), any(), eq(true), anyLong(), isNull(), isNull());
+  }
+
+  @Test
+  void handle_withoutAuditService_worksFine() {
+    // Service without audit should work normally
+    Map<String, Object> params = Map.of(
+        "name", "echo_test",
+        "arguments", Map.of("message", "test")
+    );
+    McpRequest req = new McpRequest("2.0", "tools/call", params, 13);
+    McpResponse resp = service.handle(req);
+    assertTrue(resp.result() != null);
+  }
+
+  @Test
+  void toolsCall_emptyArguments_usesEmptyMap() {
+    Map<String, Object> params = Map.of(
+        "name", "echo_test"
+        // no "arguments" key
+    );
+    McpRequest req = new McpRequest("2.0", "tools/call", params, 14);
+    McpResponse resp = service.handle(req);
+    assertTrue(resp.result() != null);
+  }
+
+  @Test
+  void handle_withAuditService_recordsErrorCases() {
+    com.team.mcp.audit.AuditService audit = mock(com.team.mcp.audit.AuditService.class);
+    InMemoryQuotaService quota = new InMemoryQuotaService();
+    CheckQuotaTool check = new CheckQuotaTool(quota);
+    EchoTool echo = new EchoTool();
+    ToolRegistry registry = new ToolRegistry(echo, check);
+    McpService svcWithAudit = new McpService(registry);
+    svcWithAudit.setAuditService(audit);
+
+    // Test error case with audit
+    McpRequest req = new McpRequest("2.0", "tools/call", null, 15);
+    McpResponse resp = svcWithAudit.handle(req);
+
+    assertEquals(-32602, resp.error().code());
+    verify(audit).save(eq("tools/call"), isNull(), isNull(), eq(false), anyLong(), 
+        eq(-32602), eq("Missing params"));
+  }
+
+  @Test
+  void handle_withAuditService_recordsUnknownTool() {
+    com.team.mcp.audit.AuditService audit = mock(com.team.mcp.audit.AuditService.class);
+    InMemoryQuotaService quota = new InMemoryQuotaService();
+    CheckQuotaTool check = new CheckQuotaTool(quota);
+    EchoTool echo = new EchoTool();
+    ToolRegistry registry = new ToolRegistry(echo, check);
+    McpService svcWithAudit = new McpService(registry);
+    svcWithAudit.setAuditService(audit);
+
+    Map<String, Object> params = Map.of("name", "unknown_tool", "arguments", Map.of());
+    McpRequest req = new McpRequest("2.0", "tools/call", params, 16);
+    McpResponse resp = svcWithAudit.handle(req);
+
+    assertEquals(-32602, resp.error().code());
+    verify(audit).save(eq("tools/call"), eq("unknown_tool"), isNull(), eq(false), 
+        anyLong(), eq(-32602), contains("Unknown tool"));
+  }
+
+  @Test
+  void handle_withAuditService_recordsInvalidName() {
+    com.team.mcp.audit.AuditService audit = mock(com.team.mcp.audit.AuditService.class);
+    InMemoryQuotaService quota = new InMemoryQuotaService();
+    CheckQuotaTool check = new CheckQuotaTool(quota);
+    EchoTool echo = new EchoTool();
+    ToolRegistry registry = new ToolRegistry(echo, check);
+    McpService svcWithAudit = new McpService(registry);
+    svcWithAudit.setAuditService(audit);
+
+    Map<String, Object> params = Map.of("name", 123, "arguments", Map.of());
+    McpRequest req = new McpRequest("2.0", "tools/call", params, 17);
+    McpResponse resp = svcWithAudit.handle(req);
+
+    assertEquals(-32602, resp.error().code());
+    verify(audit).save(eq("tools/call"), isNull(), isNull(), eq(false), 
+        anyLong(), eq(-32602), contains("name"));
   }
 }

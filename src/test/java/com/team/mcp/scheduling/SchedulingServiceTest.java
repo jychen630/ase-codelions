@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -162,5 +163,111 @@ class SchedulingServiceTest {
     assertEquals(ScheduledPost.Status.FAILED, due1.getStatus());
     assertEquals(ScheduledPost.Status.POSTED, due2.getStatus());
     assertEquals("tw-200", due2.getPostedTweetId());
+  }
+
+  @Test
+  void schedule_nullAccountId_throwsException() {
+    Instant future = Instant.parse("2025-10-01T12:05:00Z");
+    IllegalArgumentException ex = assertThrows(
+        IllegalArgumentException.class,
+        () -> service.schedule("text", future, null)
+    );
+    assertTrue(ex.getMessage().contains("accountId"));
+  }
+
+  @Test
+  void schedule_blankAccountId_throwsException() {
+    Instant future = Instant.parse("2025-10-01T12:05:00Z");
+    IllegalArgumentException ex = assertThrows(
+        IllegalArgumentException.class,
+        () -> service.schedule("text", future, "   ")
+    );
+    assertTrue(ex.getMessage().contains("accountId"));
+  }
+
+  @Test
+  void schedule_nullText_throwsException() {
+    Instant future = Instant.parse("2025-10-01T12:05:00Z");
+    IllegalArgumentException ex = assertThrows(
+        IllegalArgumentException.class,
+        () -> service.schedule(null, future, "acct")
+    );
+    assertTrue(ex.getMessage().contains("text"));
+  }
+
+  @Test
+  void schedule_blankText_throwsException() {
+    Instant future = Instant.parse("2025-10-01T12:05:00Z");
+    IllegalArgumentException ex = assertThrows(
+        IllegalArgumentException.class,
+        () -> service.schedule("   ", future, "acct")
+    );
+    assertTrue(ex.getMessage().contains("text"));
+  }
+
+  @Test
+  void schedule_nullTime_throwsException() {
+    IllegalArgumentException ex = assertThrows(
+        IllegalArgumentException.class,
+        () -> service.schedule("text", null, "acct")
+    );
+    assertTrue(ex.getMessage().contains("time"));
+  }
+
+  @Test
+  void schedule_currentTime_throwsException() {
+    Instant now = Instant.parse("2025-10-01T12:00:00Z");
+    IllegalArgumentException ex = assertThrows(
+        IllegalArgumentException.class,
+        () -> service.schedule("text", now, "acct")
+    );
+    assertTrue(ex.getMessage().toLowerCase().contains("future"));
+  }
+
+  @Test
+  void constructor_nullClock_usesSystemClock() {
+    SchedulingService svc = new SchedulingService(
+        repo, twitterClient, null, 50
+    );
+    // Use a time far in the future to ensure it's after system clock
+    Instant future = Instant.now().plusSeconds(3600);
+    when(repo.save(any(ScheduledPost.class)))
+        .thenAnswer((Answer<ScheduledPost>) inv -> {
+          ScheduledPost s = inv.getArgument(0);
+          ScheduledPost spy = spy(s);
+          doReturn(1L).when(spy).getId();
+          return spy;
+        });
+    // Should work with system clock
+    String id = svc.schedule("test", future, "acct");
+    assertEquals("1", id);
+  }
+
+  @Test
+  void constructor_zeroBatchSize_usesDefault() {
+    SchedulingService svc = new SchedulingService(
+        repo, twitterClient, fixedClock, 0
+    );
+    when(repo.findDue(any(Instant.class), eq(PENDING), any(Pageable.class)))
+        .thenReturn(List.of());
+    // Should use default batch size (50)
+    int processed = svc.publisherTick();
+    assertEquals(0, processed);
+    verify(repo).findDue(any(Instant.class), eq(PENDING), 
+        eq(PageRequest.of(0, 50)));
+  }
+
+  @Test
+  void constructor_negativeBatchSize_usesDefault() {
+    SchedulingService svc = new SchedulingService(
+        repo, twitterClient, fixedClock, -10
+    );
+    when(repo.findDue(any(Instant.class), eq(PENDING), any(Pageable.class)))
+        .thenReturn(List.of());
+    // Should use default batch size (50)
+    int processed = svc.publisherTick();
+    assertEquals(0, processed);
+    verify(repo).findDue(any(Instant.class), eq(PENDING), 
+        eq(PageRequest.of(0, 50)));
   }
 }
