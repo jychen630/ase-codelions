@@ -614,7 +614,7 @@ mvn -q verify
 
 Integration tests are located under:
 
-- `src/test/java/.../integration`
+- `src/test/javacom/team/mcp`
 - and selected controller-focused test classes
 
 Each test class is designed to cover a specific integration concern, including:
