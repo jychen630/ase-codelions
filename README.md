@@ -600,6 +600,8 @@ Generated reports:
 target/site/jacoco/index.html
 ```
 
+![Image](https://github.com/user-attachments/assets/b314ddec-1b1f-4335-911a-f47e43df0c80)
+
 Run locally:
 
 ```
