@@ -1,0 +1,9 @@
+# Global app settings (shared across profiles)
+app:
+  # Scheduler tick interval for the publisher / scheduler runner (ms)
+  publisher:
+    fixedDelay: 15000
+
+logging:
+  level:
+    com.team.mcp.scheduling: INFO
